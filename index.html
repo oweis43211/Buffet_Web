@@ -4,8 +4,527 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام البوفيه</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #00bfa6;
+            --secondary-color: #0078d7;
+            --success-color: #F5276C;
+            --warning-color: #f2a900;
+            --info-color: #00bfa6;
+            --dark-bg: #1e1e1e;
+            --darker-bg: #1b1b1b;
+            --card-bg: #2a2a2a;
+            --text-light: #ffffff;
+            --text-gray: #cccccc;
+            --border-color: #333333;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-light);
+            direction: rtl;
+            line-height: 1.6;
+        }
+
+        .page {
+            display: none;
+            min-height: 100vh;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* تسجيل الدخول - كما كانت */
+        .login-container {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 30px;
+            background: #2a2a2a;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .login-container h1 {
+            margin-bottom: 30px;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: right;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: white;
+            font-size: 1rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            background: #f2f2f2;
+            color: #2b2b2b;
+            font-size: 14px;
+        }
+
+        .btn {
+            background: #00bfa6;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            width: 100%;
+            margin: 5px 0;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-primary {
+            background: #00bfa6;
+        }
+
+        .btn-secondary {
+            background: #0078d7;
+            font-size: 12px;
+        }
+
+        .btn-success {
+            background: #F5276C;
+        }
+
+        .btn-warning {
+            background: #f2a900;
+        }
+
+        .btn-info {
+            background: #00bfa6;
+        }
+
+        /* أزرار كبيرة جداً */
+        .btn-extra-large {
+            padding: 20px !important;
+            font-size: 1.3rem !important;
+            font-weight: bold;
+            margin: 10px 0 !important;
+            border-radius: 10px !important;
+        }
+
+        .footer {
+            margin-top: 20px;
+            padding: 10px;
+            background: #e7e7e7;
+            color: black;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        /* الواجهة الرئيسية */
+        .app-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .user-welcome {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: var(--text-light);
+        }
+
+        .refresh-status {
+            color: var(--text-gray);
+            font-size: 0.9rem;
+        }
+
+        .main-content {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .selected-products {
+            padding: 10px;
+            background: var(--darker-bg);
+            border-radius: 5px;
+            margin: 10px 0;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            border: 2px dashed var(--border-color);
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        /* أزرار الطلب الكبيرة */
+        .order-buttons-large {
+            margin-top: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* المودال */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--dark-bg);
+            margin: 5% auto;
+            padding: 0;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .large-modal {
+            max-width: 800px;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 1.3rem;
+            color: var(--text-light);
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .close {
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-gray);
+        }
+
+        .close:hover {
+            color: var(--text-light);
+        }
+
+        /* البحث */
+        .search-container {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .search-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: var(--darker-bg);
+            border-radius: 8px;
+        }
+
+        .note {
+            color: #ff6b6b;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .quote {
+            color: var(--primary-color);
+            font-style: italic;
+            font-size: 0.8rem;
+        }
+
+        /* شبكة المنتجات */
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .product-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .product-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .product-image-container {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--darker-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .product-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .no-image {
+            color: #666;
+            font-size: 2.5rem;
+        }
+
+        .product-info {
+            text-align: right;
+        }
+
+        .product-info h4 {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: var(--text-light);
+        }
+
+        .product-info p {
+            color: var(--text-gray);
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .price {
+            color: #4ecdc4 !important;
+            font-weight: bold;
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .quantity-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .quantity-btn:hover {
+            background: var(--success-color);
+            transform: scale(1.1);
+        }
+
+        .quantity-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .quantity-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+            min-width: 40px;
+            text-align: center;
+            color: var(--text-light);
+        }
+
+        /* جداول البيانات */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .data-table th, .data-table td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .data-table th {
+            background: var(--darker-bg);
+            color: var(--text-light);
+            font-weight: bold;
+        }
+
+        .data-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .data-summary {
+            background: var(--darker-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* التجاوب للهواتف */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .login-container {
+                margin: 20px auto;
+                padding: 20px;
+            }
+
+            .modal-content {
+                margin: 2% auto;
+                width: 95%;
+                max-height: 90vh;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .product-card {
+                padding: 12px;
+            }
+
+            .product-image-container {
+                height: 140px;
+            }
+
+            .btn-extra-large {
+                padding: 18px !important;
+                font-size: 1.2rem !important;
+            }
+
+            .data-table th, .data-table td {
+                padding: 8px 10px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                margin: 10px auto;
+                padding: 15px;
+            }
+
+            .login-container h1 {
+                font-size: 1.3rem;
+            }
+
+            input {
+                padding: 10px;
+            }
+
+            .btn {
+                padding: 10px 15px;
+                font-size: 0.9rem;
+            }
+
+            .btn-extra-large {
+                padding: 16px !important;
+                font-size: 1.1rem !important;
+            }
+
+            .quantity-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 1rem;
+            }
+
+            .quantity-display {
+                font-size: 1.1rem;
+                min-width: 35px;
+            }
+        }
+
+        /* شريط التمرير المخصص */
+        .modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: var(--darker-bg);
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 3px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: var(--success-color);
+        }
+    </style>
 </head>
 <body>
     <div id="app">
@@ -125,7 +644,719 @@
         </div>
     </div>
 
-    <script src="supabase-config.js"></script>
-    <script src="script.js"></script>
+    <!-- نافذة عرض الاستهلاك -->
+    <div id="consumption-modal" class="modal">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3>📊 عرض استهلاكي</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="consumption-summary" class="data-summary">
+                    جاري تحميل البيانات...
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="consumption-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>الصنف</th>
+                                <th>الكمية</th>
+                                <th>السعر</th>
+                                <th>الإجمالي</th>
+                                <th>نوع الدفع</th>
+                            </tr>
+                        </thead>
+                        <tbody id="consumption-data">
+                            <!-- سيتم ملؤها بالبيانات -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة عرض حالة الطلبات -->
+    <div id="orders-modal" class="modal">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3>📋 عرض حالة طلباتي</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="overflow-x: auto;">
+                    <table id="orders-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>رقم الطلب</th>
+                                <th>التاريخ</th>
+                                <th>المنتجات</th>
+                                <th>الإجمالي</th>
+                                <th>الحالة</th>
+                                <th>وقت الاستلام</th>
+                                <th>وقت التسليم</th>
+                                <th>المدة بالدقائق</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-data">
+                            <!-- سيتم ملؤها بالبيانات -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // تكوين Supabase
+        const SUPABASE_URL = "https://oshbvczwsxpimyneudeg.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zaGJ2Y3p3c3hwaW15bmV1ZGVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3MTA5MjQsImV4cCI6MjA3NDI4NjkyNH0.tzNQ_DCrZLSO2H-EgmtElOlG05__FFmpqU0vJ5ay7VU";
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // حالة التطبيق
+        let currentUser = null;
+        let products = {};
+        let availableProducts = {};
+        let selectedProducts = [];
+
+        // تهيئة التطبيق
+        document.addEventListener('DOMContentLoaded', function () {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            // أحداث تسجيل الدخول
+            document.getElementById('login-btn').addEventListener('click', doLogin);
+            document.getElementById('change-password-btn').addEventListener('click', showChangePasswordModal);
+            document.getElementById('password').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') doLogin();
+            });
+
+            // أحداث الواجهة الرئيسية
+            document.getElementById('select-products-btn').addEventListener('click', showProductsModal);
+            document.getElementById('consumption-btn').addEventListener('click', showConsumption);
+            document.getElementById('orders-btn').addEventListener('click', showMyOrders);
+            document.getElementById('send-normal-btn').addEventListener('click', () => sendOrder('عادي'));
+            document.getElementById('send-cash-btn').addEventListener('click', () => sendOrder('كاش'));
+
+            // أحداث المودالات
+            setupModalEvents();
+        }
+
+        // دالة محسنة لجلب الصور من مجلد img
+        function getProductImage(code) {
+            const extensions = ['png', 'jpg', 'jpeg', 'webp'];
+            let html = '<div class="product-image-container">';
+
+            // إضافة جميع الصور المحتملة
+            extensions.forEach((ext, index) => {
+                const displayStyle = index === 0 ? '' : 'style="display:none"';
+                html += `<img src="img/${code}.${ext}" 
+                             alt="Product ${code}" 
+                             class="product-image"
+                             ${displayStyle}
+                             onerror="handleImageError(this, ${code})"
+                             loading="lazy">`;
+            });
+
+            html += `<div class="no-image" style="display:none">🖼️ لا توجد صورة</div>`;
+            html += '</div>';
+
+            return html;
+        }
+
+        // معالجة خطأ الصورة
+        function handleImageError(imgElement, code) {
+            const container = imgElement.closest('.product-image-container');
+            const nextImage = container.querySelector('.product-image:not([style*="display: none"])');
+            const noImage = container.querySelector('.no-image');
+
+            imgElement.style.display = 'none';
+
+            if (nextImage) {
+                nextImage.style.display = 'block';
+            } else {
+                noImage.style.display = 'block';
+            }
+        }
+
+        // تسجيل الدخول
+        async function doLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!username || !password) {
+                alert('يرجى إدخال اسم المستخدم وكلمة المرور');
+                return;
+            }
+
+            if (!password.match(/^\d{4}$/)) {
+                alert('كلمة المرور يجب أن تكون 4 أرقام فقط');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('username', username)
+                    .eq('password', password);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    currentUser = username;
+                    showMainApp();
+                } else {
+                    alert('اسم المستخدم أو كلمة المرور غير صحيحة');
+                }
+            } catch (error) {
+                alert('فشل تسجيل الدخول: ' + error.message);
+            }
+        }
+
+        // عرض الواجهة الرئيسية
+        function showMainApp() {
+            document.getElementById('login-page').classList.remove('active');
+            document.getElementById('main-page').classList.add('active');
+            document.getElementById('welcome-user').textContent = currentUser;
+
+            fetchProductsAndAvailability();
+            startAutoRefresh();
+        }
+
+        // جلب المنتجات والتوافر
+        async function fetchProductsAndAvailability() {
+            try {
+                // جلب الأسعار
+                const { data: pricesData, error: pricesError } = await supabase
+                    .from('prices')
+                    .select('*');
+
+                if (pricesError) throw pricesError;
+
+                products = {};
+                pricesData.forEach(item => {
+                    const code = parseInt(item.code);
+                    products[code] = {
+                        item: item.item,
+                        price: parseFloat(item.price) || 0,
+                        image_data: item.image_data
+                    };
+                });
+
+                // جلب التوافر
+                const { data: availabilityData, error: availabilityError } = await supabase
+                    .from('availability')
+                    .select('*');
+
+                if (availabilityError) throw availabilityError;
+
+                availableProducts = {};
+                availabilityData.forEach(item => {
+                    const code = parseInt(item.code);
+                    availableProducts[code] = {
+                        available: Boolean(item.available),
+                        available_qty: parseInt(item.available_qty) || 0
+                    };
+                });
+
+                updateRefreshTime();
+            } catch (error) {
+                console.error('Error fetching products:', error);
+                alert('فشل تحميل البيانات');
+            }
+        }
+
+        // تحديث الوقت
+        function updateRefreshTime() {
+            const now = new Date().toLocaleTimeString('ar-EG');
+            document.getElementById('refresh-status').textContent = `آخر تحديث: ${now}`;
+        }
+
+        // التحديث التلقائي
+        function startAutoRefresh() {
+            setInterval(async () => {
+                await fetchProductsAndAvailability();
+                checkSystemStatus();
+            }, 5000);
+        }
+
+        // التحقق من حالة النظام
+        async function checkSystemStatus() {
+            try {
+                const { data, error } = await supabase
+                    .from('system_status')
+                    .select('*')
+                    .limit(1);
+
+                if (error) throw error;
+
+                const status = data[0] || { buffet_open: true, prayer_closed: false };
+
+                if (!status.buffet_open) {
+                    alert('عذرًا، البوفيه مغلق حاليًا، يرجى الطلب غدًا.');
+                } else if (status.prayer_closed) {
+                    alert('عذرًا، عامل البوفيه ذهب للصلاة، يرجى الانتظار حتى انتهاء الصلاة.');
+                }
+            } catch (error) {
+                console.error('Error checking system status:', error);
+            }
+        }
+
+        // نافذة المنتجات
+        async function showProductsModal() {
+            const modal = document.getElementById('products-modal');
+            modal.style.display = 'block';
+            await loadProductsModal();
+        }
+
+        async function loadProductsModal() {
+            const productsList = document.getElementById('products-list');
+            productsList.innerHTML = '<div style="text-align: center; padding: 40px; color: #ccc;">جاري تحميل المنتجات...</div>';
+
+            try {
+                const availableCodes = Object.keys(availableProducts)
+                    .filter(code => availableProducts[code].available && availableProducts[code].available_qty > 0)
+                    .map(code => parseInt(code));
+
+                const availableProductsList = Object.keys(products)
+                    .filter(code => availableCodes.includes(parseInt(code)))
+                    .map(code => ({
+                        code: parseInt(code),
+                        ...products[code]
+                    }));
+
+                const drinks = availableProductsList.filter(p => p.code >= 1 && p.code <= 43);
+                const foods = availableProductsList.filter(p => p.code >= 100 && p.code <= 135);
+
+                let html = '';
+
+                if (drinks.length > 0) {
+                    html += '<h3 style="color: orange; margin: 20px 0 10px 0; font-size: 1.2rem;">🥤 المشروبات</h3>';
+                    html += renderProductSection(drinks);
+                }
+
+                if (foods.length > 0) {
+                    html += '<h3 style="color: orange; margin: 20px 0 10px 0; font-size: 1.2rem;">🍔 المأكولات</h3>';
+                    html += renderProductSection(foods);
+                }
+
+                productsList.innerHTML = html || '<div style="text-align: center; padding: 40px; color: #ccc;">لا توجد منتجات متاحة حالياً</div>';
+
+                setupProductSearch();
+
+            } catch (error) {
+                productsList.innerHTML = '<div style="text-align: center; padding: 40px; color: red;">فشل تحميل المنتجات</div>';
+                console.error('Error loading products:', error);
+            }
+        }
+
+        function renderProductSection(products) {
+            return products.map(product => {
+                const availableQty = availableProducts[product.code]?.available_qty || 0;
+                const currentQty = selectedProducts.find(p => p.code === product.code)?.qty || 0;
+
+                return `
+                    <div class="product-card" data-code="${product.code}">
+                        ${getProductImage(product.code)}
+                        <div class="product-info">
+                            <h4>${product.item}</h4>
+                            <p class="price">السعر: ${product.price} جنيه</p>
+                            <p style="color: #4ecdc4;">المتاح: ${availableQty}</p>
+                            <div class="quantity-controls">
+                                <button class="quantity-btn" onclick="decreaseQuantity(${product.code})" 
+                                        ${currentQty === 0 ? 'disabled' : ''}>-</button>
+                                <span class="quantity-display" id="qty-${product.code}">${currentQty}</span>
+                                <button class="quantity-btn" onclick="increaseQuantity(${product.code})"
+                                        ${currentQty >= availableQty ? 'disabled' : ''}>+</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // التحكم في الكميات
+        function increaseQuantity(code) {
+            const availableQty = availableProducts[code]?.available_qty || 0;
+            const currentProduct = selectedProducts.find(p => p.code === code);
+            const currentQty = currentProduct ? currentProduct.qty : 0;
+
+            if (currentQty < availableQty) {
+                if (currentProduct) {
+                    currentProduct.qty++;
+                } else {
+                    selectedProducts.push({
+                        code: code,
+                        name: products[code].item,
+                        price: products[code].price,
+                        qty: 1
+                    });
+                }
+                updateQuantityDisplay(code, currentQty + 1);
+            }
+        }
+
+        function decreaseQuantity(code) {
+            const currentProduct = selectedProducts.find(p => p.code === code);
+            if (currentProduct) {
+                currentProduct.qty--;
+                if (currentProduct.qty <= 0) {
+                    selectedProducts = selectedProducts.filter(p => p.code !== code);
+                }
+                updateQuantityDisplay(code, Math.max(0, currentProduct.qty));
+            }
+        }
+
+        function updateQuantityDisplay(code, quantity) {
+            const display = document.getElementById(`qty-${code}`);
+            if (display) {
+                display.textContent = quantity;
+            }
+        }
+
+        // تأكيد الاختيار
+        function confirmSelection() {
+            if (selectedProducts.length > 0) {
+                document.getElementById('selected-products').textContent =
+                    `تم اختيار ${selectedProducts.length} منتج ✅`;
+                document.getElementById('selected-products').style.color = 'lightgreen';
+                closeModal('products-modal');
+                alert('تم حفظ اختيارك بنجاح ✅');
+            } else {
+                alert('لم يتم تحديد أي كميات.');
+            }
+        }
+
+        // إرسال الطلب
+        async function sendOrder(orderType) {
+            const place = document.getElementById('place').value.trim();
+            const note = document.getElementById('note').value.trim();
+
+            if (!place) {
+                alert('يرجى إدخال المكان');
+                return;
+            }
+
+            if (selectedProducts.length === 0 || !selectedProducts.some(p => p.qty > 0)) {
+                alert('يرجى اختيار المنتجات أولاً');
+                return;
+            }
+
+            // التحقق من حالة النظام
+            try {
+                const { data, error } = await supabase
+                    .from('system_status')
+                    .select('*')
+                    .limit(1);
+
+                if (error) throw error;
+
+                const status = data[0] || { buffet_open: true, prayer_closed: false };
+
+                if (!status.buffet_open) {
+                    alert('عذرًا، البوفيه مغلق حاليًا، يرجى الطلب غدًا.');
+                    return;
+                }
+
+                if (status.prayer_closed) {
+                    alert('عذرًا، عامل البوفيه ذهب للصلاة، يرجى الانتظار حتى انتهاء الصلاة.');
+                    return;
+                }
+            } catch (error) {
+                console.error('Error checking system status:', error);
+            }
+
+            try {
+                const batchId = `${currentUser}_${Date.now()}`;
+                let totalAll = 0;
+                const productsData = [];
+                const expensesRows = [];
+
+                const now = new Date();
+                const nowDate = now.toISOString().split('T')[0];
+                const nowTime = now.toTimeString().split(' ')[0];
+
+                for (const prod of selectedProducts) {
+                    if (prod.qty <= 0) continue;
+
+                    const code = prod.code;
+                    const availableInfo = availableProducts[code];
+
+                    if (!availableInfo || !availableInfo.available) continue;
+
+                    const availableQty = availableInfo.available_qty || 0;
+                    let finalQty = prod.qty;
+
+                    if (availableQty < prod.qty) {
+                        alert(`الكمية المتاحة من '${prod.name}' هي ${availableQty} فقط.`);
+                        finalQty = availableQty;
+                        if (finalQty <= 0) continue;
+                    }
+
+                    const totalPrice = prod.price * finalQty;
+                    totalAll += totalPrice;
+
+                    productsData.push({
+                        code: code,
+                        item: prod.name,
+                        price: prod.price,
+                        qty: finalQty,
+                        total: totalPrice
+                    });
+
+                    expensesRows.push({
+                        username: currentUser,
+                        code: code,
+                        item: prod.name,
+                        price: prod.price,
+                        qty: finalQty,
+                        total: totalPrice,
+                        date: nowDate,
+                        time: nowTime,
+                        payment_type: orderType,
+                        batch_id: batchId
+                    });
+
+                    // تحديث الكمية المتاحة
+                    const newQty = Math.max(0, availableQty - finalQty);
+                    await supabase
+                        .from('availability')
+                        .update({ available_qty: newQty })
+                        .eq('code', code);
+                }
+
+                if (productsData.length === 0) {
+                    alert('لم يتم إدخال أي منتجات صالحة');
+                    return;
+                }
+
+                // إدخال الطلب
+                await supabase
+                    .from('orders')
+                    .insert({
+                        username: currentUser,
+                        place: place,
+                        status: 'في الانتظار',
+                        order_type: orderType,
+                        note: note,
+                        batch_id: batchId,
+                        products: productsData,
+                        total: totalAll,
+                        date: nowDate,
+                        time: nowTime
+                    });
+
+                // إدخال المصروفات
+                await supabase
+                    .from('expenses')
+                    .insert(expensesRows);
+
+                alert(`تم إرسال طلبك بنجاح.\nالإجمالي: ${totalAll} جنيه`);
+
+                // إعادة تعيين الحقول
+                document.getElementById('place').value = '';
+                document.getElementById('note').value = '';
+                document.getElementById('selected-products').textContent = 'لم يتم اختيار منتجات';
+                document.getElementById('selected-products').style.color = 'red';
+                selectedProducts = [];
+
+            } catch (error) {
+                alert('حدث خطأ أثناء إرسال الطلب: ' + error.message);
+            }
+        }
+
+        // إعداد أحداث المودالات
+        function setupModalEvents() {
+            document.querySelectorAll('.close').forEach(closeBtn => {
+                closeBtn.addEventListener('click', function () {
+                    this.closest('.modal').style.display = 'none';
+                });
+            });
+
+            window.addEventListener('click', function (event) {
+                if (event.target.classList.contains('modal')) {
+                    event.target.style.display = 'none';
+                }
+            });
+
+            document.getElementById('confirm-selection').addEventListener('click', confirmSelection);
+            document.getElementById('save-password').addEventListener('click', changePassword);
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // البحث في المنتجات
+        function setupProductSearch() {
+            const searchInput = document.getElementById('product-search');
+            searchInput.addEventListener('input', function () {
+                const term = this.value.toLowerCase().trim();
+                const productCards = document.querySelectorAll('.product-card');
+
+                productCards.forEach(card => {
+                    const productName = card.querySelector('h4').textContent.toLowerCase();
+                    if (productName.includes(term)) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // تغيير كلمة المرور
+        async function changePassword() {
+            const username = document.getElementById('change-username').value.trim();
+            const oldPassword = document.getElementById('old-password').value.trim();
+            const newPassword = document.getElementById('new-password').value.trim();
+
+            if (!username || !oldPassword || !newPassword) {
+                alert('يرجى إدخال جميع الحقول');
+                return;
+            }
+
+            if (!newPassword.match(/^\d{4}$/)) {
+                alert('كلمة المرور الجديدة يجب أن تكون 4 أرقام فقط');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('username', username)
+                    .eq('password', oldPassword);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    await supabase
+                        .from('users')
+                        .update({ password: newPassword })
+                        .eq('username', username);
+
+                    alert('تم تغيير كلمة المرور بنجاح ✅');
+                    closeModal('password-modal');
+                } else {
+                    alert('اسم المستخدم أو كلمة المرور الحالية غير صحيحة');
+                }
+            } catch (error) {
+                alert('فشل تغيير كلمة المرور: ' + error.message);
+            }
+        }
+
+        function showChangePasswordModal() {
+            document.getElementById('password-modal').style.display = 'block';
+        }
+
+        // وظائف العرض - عرض الاستهلاك
+        async function showConsumption() {
+            const modal = document.getElementById('consumption-modal');
+            modal.style.display = 'block';
+            
+            try {
+                const { data, error } = await supabase
+                    .from('expenses')
+                    .select('*')
+                    .eq('username', currentUser)
+                    .order('date', { ascending: false });
+
+                if (error) throw error;
+
+                const tbody = document.getElementById('consumption-data');
+                tbody.innerHTML = '';
+
+                let totalAll = 0;
+                let totalCash = 0;
+                let totalNormal = 0;
+
+                data.forEach(expense => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${expense.date}</td>
+                        <td>${expense.item}</td>
+                        <td>${expense.qty}</td>
+                        <td>${expense.price}</td>
+                        <td>${expense.total}</td>
+                        <td>${expense.payment_type}</td>
+                    `;
+                    tbody.appendChild(row);
+
+                    totalAll += parseFloat(expense.total || 0);
+                    if (expense.payment_type === 'كاش') {
+                        totalCash += parseFloat(expense.total || 0);
+                    } else {
+                        totalNormal += parseFloat(expense.total || 0);
+                    }
+                });
+
+                document.getElementById('consumption-summary').innerHTML = 
+                    `المجموع الكلي: ${totalAll.toFixed(2)} | المجموع العادي: ${totalNormal.toFixed(2)} | المجموع الكاش: ${totalCash.toFixed(2)}`;
+
+            } catch (error) {
+                console.error('Error loading consumption data:', error);
+                document.getElementById('consumption-summary').innerHTML = '⚠️ فشل تحميل البيانات';
+            }
+        }
+
+        // وظائف العرض - عرض حالة الطلبات
+        async function showMyOrders() {
+            const modal = document.getElementById('orders-modal');
+            modal.style.display = 'block';
+            
+            try {
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .eq('username', currentUser)
+                    .order('id', { ascending: false });
+
+                if (error) throw error;
+
+                const tbody = document.getElementById('orders-data');
+                tbody.innerHTML = '';
+
+                data.forEach(order => {
+                    const productsText = Array.isArray(order.products) 
+                        ? order.products.map(p => `${p.item} (${p.qty})`).join('<br>')
+                        : 'لا توجد منتجات';
+
+                    // حساب المدة بالدقائق
+                    let duration = '';
+                    if (order.time_received && order.time_delivered) {
+                        try {
+                            const time1 = new Date(`1970-01-01T${order.time_received}`);
+                            const time2 = new Date(`1970-01-01T${order.time_delivered}`);
+                            const diffMinutes = Math.round((time2 - time1) / (1000 * 60));
+                            duration = diffMinutes;
+                        } catch (e) {
+                            duration = '';
+                        }
+                    }
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${order.id}</td>
+                        <td>${order.date}</td>
+                        <td>${productsText}</td>
+                        <td>${order.total}</td>
+                        <td>${order.status}</td>
+                        <td>${order.time_received || ''}</td>
+                        <td>${order.time_delivered || ''}</td>
+                        <td>${duration}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            } catch (error) {
+                console.error('Error loading orders data:', error);
+                document.getElementById('orders-data').innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">⚠️ فشل تحميل البيانات</td></tr>';
+            }
+        }
+    </script>
 </body>
 </html>
