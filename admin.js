@@ -1,8 +1,25 @@
-// تكوين Supabase
+// التحقق من أن supabase متاح
+if (typeof supabase === 'undefined') {
+    console.error('Supabase is not loaded. Please check the script tags.');
+    // إنشاء عميل supabase يدوياً
+    window.supabase = window.supabase || {};
+}
+
 const SUPABASE_URL = "https://oshbvczwsxpimyneudeg.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zaGJ2Y3p3c3hwaW15bmV1ZGVnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODcxMDkyNCwiZXhwIjoyMDc0Mjg2OTI0fQ.A4QiXm-uC6q8RWV0w67zXNEXnsqQIwJdS7f-efG1vQg";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// تهيئة Supabase
+let supabase;
+try {
+    if (window.supabase && window.supabase.createClient) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log('Supabase initialized successfully');
+    } else {
+        console.error('Supabase SDK not loaded properly');
+    }
+} catch (error) {
+    console.error('Error initializing Supabase:', error);
+}
 
 // حالة التطبيق
 let adminState = {
