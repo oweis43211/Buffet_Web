@@ -2419,6 +2419,7 @@
         // ==================== التطبيق الرئيسي ====================
 
         // تهيئة التطبيق الرئيسي
+        // تهيئة التطبيق الرئيسي
         function initializeApp() {
             const savedUser = localStorage.getItem('buffet_user');
             const savedUsername = localStorage.getItem('buffet_username');
@@ -2429,7 +2430,19 @@
                 showMainScreen();
                 loadUserData();
             } else {
-                showLoginScreen();
+                showLoginScreen(); // هذا سيظهر شاشة تسجيل دخول المستخدم أولاً
+            }
+        }
+        
+        // تهيئة تطبيق الإدارة
+        function initializeAdminApp() {
+            // لا تعرض شاشة الإدارة تلقائياً
+            // فقط استعد حالة المصادقة إذا كانت موجودة
+            const adminAuth = localStorage.getItem('admin_authenticated');
+            
+            if (adminAuth === 'true') {
+                adminState.authenticated = true;
+                // لا تظهر لوحة التحكم تلقائياً
             }
         }
 
@@ -2484,6 +2497,7 @@
         }
 
         // تسجيل الدخول
+        // تسجيل الدخول
         async function handleLogin() {
             const username = elements.usernameInput.value.trim();
             const password = elements.passwordInput.value.trim();
@@ -2521,6 +2535,7 @@
                 
                 showMainScreen();
                 loadUserData();
+                updateAdminButtonVisibility(); // إظهار زر المسؤول
                 showNotification('تم تسجيل الدخول بنجاح!', 'success');
                 
             } catch (error) {
@@ -2529,6 +2544,7 @@
             }
         }
 
+        // تسجيل الخروج
         // تسجيل الخروج
         function handleLogout() {
             appState.loggedIn = false;
@@ -2540,6 +2556,7 @@
             localStorage.removeItem('buffet_username');
             
             showLoginScreen();
+            updateAdminButtonVisibility(); // إخفاء زر المسؤول
             showNotification('تم تسجيل الخروج بنجاح', 'success');
         }
 
@@ -4577,6 +4594,15 @@
             }
         }
 
+        // عرض/إخفاء زر المسؤول
+        function updateAdminButtonVisibility() {
+            if (appState.loggedIn) {
+                elements.adminBtn.style.display = 'flex';
+            } else {
+                elements.adminBtn.style.display = 'none';
+            }
+        }
+
         // تعريف الدوال على window للوصول من HTML
         window.updateProductQty = updateProductQty;
         window.addToCart = addToCart;
@@ -4590,9 +4616,15 @@
         window.deleteAdminUser = deleteAdminUser;
 
         // تهيئة التطبيق عند تحميل الصفحة
+        // تهيئة التطبيق عند تحميل الصفحة
         document.addEventListener('DOMContentLoaded', () => {
+            // تهيئة التطبيق الرئيسي أولاً (يظهر تسجيل دخول المستخدم)
             initializeApp();
+            
+            // تهيئة تطبيق الإدارة (دون عرض أي شيء)
             initializeAdminApp();
+            
+            // إعداد مستمعي الأحداث
             setupEventListeners();
             setupAdminEventListeners();
             checkSystemStatus();
@@ -4606,10 +4638,14 @@
                 }
             }, 30000);
             
+            // إخفاء زر المسؤول بشكل افتراضي
+            elements.adminBtn.style.display = 'none';
+            
             console.log('نظام البوفيه الذكي جاهز للاستخدام');
             console.log('بيانات الدخول للمسؤول: admin / 5555');
         });
     </script>
 </body>
 </html>
+
 
