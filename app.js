@@ -115,6 +115,24 @@ function setupEventListeners() {
     });
     
     elements.changePasswordBtn.addEventListener('click', showChangePasswordModal);
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+
+        // إزالة التفعيل من كل الأزرار
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+        // تفعيل الزر الحالي
+        btn.classList.add('active');
+
+        // تحديد التصنيف
+        currentCategory = btn.dataset.category;
+
+        // إعادة عرض المنتجات
+        renderProducts();
+    });
+});
+
     
     // تسجيل الخروج
     elements.logoutBtn.addEventListener('click', handleLogout);
@@ -254,79 +272,77 @@ async function loadProducts() {
 }
 
 // عرض المنتجات
+let currentCategory = 'all'; // all | drinks | foods
+
 function renderProducts() {
     elements.productsGrid.innerHTML = '';
-    
+
     if (!state.products.length) {
         elements.productsGrid.innerHTML = '<div class="loading">لا توجد منتجات متاحة</div>';
         return;
     }
-    
-    // تصنيف المنتجات
+
     const drinks = state.products.filter(p => p.code >= 1 && p.code <= 43);
-    const foods = state.products.filter(p => p.code >= 100 && p.code <= 135);
-    const allProducts = [...drinks, ...foods];
-    
-    // فلترة حسب البحث
+    const foods  = state.products.filter(p => p.code >= 100 && p.code <= 135);
+
+    let allProducts = [];
+
+    if (currentCategory === 'drinks') {
+        allProducts = drinks;
+    } else if (currentCategory === 'foods') {
+        allProducts = foods;
+    } else {
+        allProducts = [...drinks, ...foods];
+    }
+
+    // البحث
     const searchTerm = elements.productSearch.value.toLowerCase();
     let filteredProducts = allProducts;
-    
+
     if (searchTerm) {
-        filteredProducts = allProducts.filter(p => 
+        filteredProducts = allProducts.filter(p =>
             p.item?.toLowerCase().includes(searchTerm)
         );
     }
-    
+
     if (!filteredProducts.length) {
-        elements.productsGrid.innerHTML = '<div class="loading">لم يتم العثور على منتجات</div>';
+        elements.productsGrid.innerHTML = '<div class="loading">لا توجد منتجات</div>';
         return;
     }
-    
+
     filteredProducts.forEach(product => {
         const availability = state.availability[product.code] || {};
         const isAvailable = availability.available !== false;
         const availableQty = availability.available_qty || 0;
         const currentQty = state.selectedProducts[product.code] || 0;
-        
+
         const productCard = document.createElement('div');
         productCard.className = `product-card ${!isAvailable ? 'unavailable' : ''}`;
-        
+
         productCard.innerHTML = `
-            ${product.image_url ? 
-                `<img src="${product.image_url}" alt="${product.item}" class="product-image" 
-                     onerror="this.src='https://via.placeholder.com/250x150?text=No+Image'">` : 
-                `<div class="product-image" style="display: flex; align-items: center; justify-content: center;">
-                    <i class="fas fa-box" style="font-size: 48px; color: #666;"></i>
-                </div>`
-            }
             <div class="product-info">
                 <div class="product-name">${product.item}</div>
                 <div class="product-price">${product.price} جنيه</div>
                 <div class="product-availability">
-                    ${isAvailable ? 
-                        `المتبقي: ${availableQty}` : 
-                        '<span class="unavailable-badge">غير متوفر</span>'
-                    }
+                    ${isAvailable ? `المتبقي: ${availableQty}` : '<span class="unavailable-badge">غير متوفر</span>'}
                 </div>
             </div>
             <div class="product-actions">
                 <div class="qty-controls">
-                    <button class="qty-btn" onclick="updateProductQty(${product.code}, -1)" 
-                            ${currentQty <= 0 ? 'disabled' : ''}>-</button>
-                    <span class="qty-display">${currentQty}</span>
-                    <button class="qty-btn" onclick="updateProductQty(${product.code}, 1)" 
-                            ${currentQty >= availableQty ? 'disabled' : ''}>+</button>
+                    <button onclick="updateProductQty(${product.code}, -1)" ${currentQty <= 0 ? 'disabled' : ''}>-</button>
+                    <span>${currentQty}</span>
+                    <button onclick="updateProductQty(${product.code}, 1)" ${currentQty >= availableQty ? 'disabled' : ''}>+</button>
                 </div>
-                <button class="add-to-cart-btn" onclick="addToCart(${product.code})"
-                        ${!isAvailable || availableQty === 0 ? 'disabled' : ''}>
+                <button onclick="addToCart(${product.code})" ${!isAvailable || availableQty === 0 ? 'disabled' : ''}>
                     <i class="fas fa-cart-plus"></i>
                 </button>
             </div>
         `;
-        
+
         elements.productsGrid.appendChild(productCard);
     });
 }
+
 
 // تحديث كمية المنتج
 window.updateProductQty = function(code, change) {
