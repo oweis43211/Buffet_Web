@@ -2175,8 +2175,10 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="productImage">رابط الصورة:</label>
-                        <input type="text" id="productImage" placeholder="https://example.com/image.jpg">
+                        <label for="productImage"><i class="fas fa-image"></i> صورة المنتج:</label>
+                        <input type="file" id="productImage" accept="image/*">
+                        <!-- معاينة الصورة ستظهر هنا -->
+                        <img id="imagePreview" src="" alt="معاينة الصورة" style="display: none; max-width: 200px; margin-top: 10px; border-radius: var(--border-radius);">
                     </div>
                     
                     <div class="form-group">
@@ -4041,17 +4043,17 @@
             modal.classList.remove('hidden');
         }
 
-        // معالجة حفظ المنتج للإدارة
         async function handleAdminProductSubmit() {
             const form = document.getElementById('productForm');
             const mode = form.dataset.mode;
             const productCode = form.dataset.code;
             
+            // 1. الحصول على بيانات النموذج النصية
             const productData = {
                 code: parseInt(document.getElementById('productCode').value) || 0,
                 item: document.getElementById('productName').value.trim(),
                 price: parseFloat(document.getElementById('productPrice').value) || 0,
-                image_url: document.getElementById('productImage').value.trim() || null
+                // image_url سيتم تحديثه بعد رفع الملف
             };
             
             const stockData = {
@@ -4060,20 +4062,38 @@
                 available_qty: parseInt(document.getElementById('initialStock').value) || 0
             };
             
-            // التحقق من البيانات
-            if (!productData.code || !productData.item || productData.price <= 0) {
-                showNotification('يرجى ملء جميع الحقول بشكل صحيح', 'error');
-                return;
-            }
+            // 2. التعامل مع ملف الصورة (إن وجد)
+            const imageFile = document.getElementById('productImage').files[0];
+            let imageUrl = null; // المتغير الذي سيحمل الرابط النهائي
             
             try {
+                // في حالة التعديل: احتفظ بالرابط القديم إذا لم يتم اختيار ملف جديد
+                if (mode === 'edit' && !imageFile) {
+                    // لا يوجد ملف جديد، ابحث عن الرابط القديم من القائمة
+                    const oldProduct = adminState.products.find(p => p.code == productCode);
+                    if (oldProduct) imageUrl = oldProduct.image_url;
+                }
+                // إذا كان هناك ملف جديد أو في حالة الإضافة: ارفعه
+                else if (imageFile) {
+                    showNotification('جاري رفع صورة المنتج...', 'info');
+                    imageUrl = await uploadProductImage(imageFile, productData.code);
+                }
+                
+                // 3. الآن أضف الرابط النهائي إلى بيانات المنتج
+                productData.image_url = imageUrl; // قد يكون رابطًا جديدًا أو قديمًا أو null
+                
+                // 4. التحقق من البيانات (باقي الكود كما هو)
+                if (!productData.code || !productData.item || productData.price <= 0) {
+                    showNotification('يرجى ملء جميع الحقول بشكل صحيح', 'error');
+                    return;
+                }
+                
+                // 5. حفظ/تحديث المنتج في قاعدة البيانات
                 if (mode === 'add') {
-                    // إضافة منتج جديد
                     await supabase.from('prices').insert(productData);
                     await supabase.from('availability').insert(stockData);
                     showNotification('تم إضافة المنتج بنجاح', 'success');
                 } else {
-                    // تحديث المنتج الموجود
                     await supabase.from('prices')
                         .update(productData)
                         .eq('code', productCode);
@@ -4085,7 +4105,7 @@
                     showNotification('تم تحديث المنتج بنجاح', 'success');
                 }
                 
-                // إغلاق النافذة وتحديث البيانات
+                // 6. إغلاق النافذة وتحديث البيانات
                 elements.productModal.classList.add('hidden');
                 await loadAdminProducts();
                 await loadAdminInventory();
@@ -4095,31 +4115,6 @@
                 showNotification('خطأ في حفظ المنتج: ' + error.message, 'error');
             }
         }
-
-        // حذف منتج للإدارة
-        window.deleteAdminProduct = async function(code) {
-            if (!confirm('هل أنت متأكد من حذف هذا المنتج؟\nسيتم حذف جميع البيانات المرتبطة به.')) {
-                return;
-            }
-            
-            try {
-                await supabase.from('prices').delete().eq('code', code);
-                await supabase.from('availability').delete().eq('code', code);
-                
-                showNotification('تم حذف المنتج بنجاح', 'success');
-                await loadAdminProducts();
-                await loadAdminInventory();
-                
-            } catch (error) {
-                console.error('Error deleting product:', error);
-                showNotification('خطأ في حذف المنتج', 'error');
-            }
-        };
-
-        // تعديل منتج للإدارة
-        window.editAdminProduct = function(code) {
-            showAdminProductModal('edit', code);
-        };
 
         // عرض نافذة المستخدم للإدارة
         function showAdminUserModal(mode, username = null) {
@@ -4594,6 +4589,60 @@
             }
         }
 
+        // دالة لعرض معاينة الصورة قبل رفعها
+function setupImagePreview() {
+    const imageInput = document.getElementById('productImage');
+    const imagePreview = document.getElementById('imagePreview');
+    
+    if (imageInput && imagePreview) {
+        imageInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imagePreview.style.display = 'none';
+            }
+        });
+    }
+}
+
+        // دالة لرفع الصورة إلى Supabase Storage (وتحتاج لتمكينه في مشروعك)
+        async function uploadProductImage(file, productCode) {
+            try {
+                // 1. قم بتمكين Storage في مشروع Supabase أولاً من لوحة التحكم
+                // 2. أنشئ bucket باسم 'product-images' أو مشابه
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${productCode}_${Date.now()}.${fileExt}`;
+                const filePath = `${fileName}`;
+                
+                // رفع الملف إلى الـ Bucket
+                const { data, error } = await supabase
+                    .storage
+                    .from('product-images') // اسم الـ Bucket
+                    .upload(filePath, file);
+                
+                if (error) throw error;
+                
+                // الحصول على رابط عام للصورة
+                const { data: { publicUrl } } = supabase
+                    .storage
+                    .from('product-images')
+                    .getPublicUrl(filePath);
+                
+                return publicUrl;
+                
+            } catch (error) {
+                console.error('خطأ في رفع الصورة:', error);
+                showNotification('فشل رفع الصورة. تأكد من إعدادات التخزين.', 'error');
+                return null;
+            }
+        }
+
         // عرض/إخفاء زر المسؤول
         function updateAdminButtonVisibility() {
             if (appState.loggedIn) {
@@ -4647,5 +4696,6 @@
     </script>
 </body>
 </html>
+
 
 
