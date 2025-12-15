@@ -7,6 +7,51 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* إضافة أنماط خاصة للإدارة */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .text-muted {
+            color: #666 !important;
+        }
+    </style>
 </head>
 <body>
     <!-- شاشة التحقق -->
@@ -35,7 +80,7 @@
                 </button>
                 
                 <button id="backToMainBtn" class="btn-secondary">
-                    <i class="fas fa-arrow-left"></i> العودة للتطبيق
+                    <i class="fas fa-arrow-left"></i> العودة للتطبيق الرئيسي
                 </button>
                 
                 <div id="adminLoginMessage" class="message"></div>
@@ -151,7 +196,7 @@
                         <div class="recent-section">
                             <h3><i class="fas fa-clock"></i> أحدث الطلبات</h3>
                             <div id="recentOrdersTable" class="data-table">
-                                <!-- سيتم تعبئتها بواسطة JavaScript -->
+                                <p class="empty">جاري تحميل الطلبات...</p>
                             </div>
                         </div>
                     </section>
@@ -180,7 +225,9 @@
                                     </tr>
                                 </thead>
                                 <tbody id="productsTableBody">
-                                    <!-- سيتم تعبئتها بواسطة JavaScript -->
+                                    <tr>
+                                        <td colspan="7" class="empty">جاري تحميل المنتجات...</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -208,7 +255,9 @@
                                     </tr>
                                 </thead>
                                 <tbody id="usersTableBody">
-                                    <!-- سيتم تعبئتها بواسطة JavaScript -->
+                                    <tr>
+                                        <td colspan="5" class="empty">جاري تحميل المستخدمين...</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -249,7 +298,9 @@
                                     </tr>
                                 </thead>
                                 <tbody id="adminOrdersTableBody">
-                                    <!-- سيتم تعبئتها بواسطة JavaScript -->
+                                    <tr>
+                                        <td colspan="7" class="empty">جاري تحميل الطلبات...</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -287,7 +338,9 @@
                                     </tr>
                                 </thead>
                                 <tbody id="inventoryTableBody">
-                                    <!-- سيتم تعبئتها بواسطة JavaScript -->
+                                    <tr>
+                                        <td colspan="6" class="empty">جاري تحميل المخزون...</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -314,15 +367,15 @@
                             </button>
                         </div>
                         
-                        <div class="charts-grid">
+                        <div id="chartsContainer" class="charts-grid">
                             <div class="chart-container">
                                 <h3>الإيرادات اليومية</h3>
-                                <canvas id="revenueChart"></canvas>
+                                <p>تحتاج إلى Chart.js لعرض الرسوم البيانية</p>
                             </div>
                             
                             <div class="chart-container">
                                 <h3>توزيع المبيعات</h3>
-                                <canvas id="salesChart"></canvas>
+                                <p>تحتاج إلى Chart.js لعرض الرسوم البيانية</p>
                             </div>
                         </div>
                         
@@ -330,14 +383,14 @@
                             <div class="top-products">
                                 <h3>أكثر المنتجات مبيعاً</h3>
                                 <div id="topProductsList" class="top-list">
-                                    <!-- سيتم تعبئتها بواسطة JavaScript -->
+                                    <p>جاري التحميل...</p>
                                 </div>
                             </div>
                             
                             <div class="top-users">
                                 <h3>أكثر المستخدمين شراءً</h3>
                                 <div id="topUsersList" class="top-list">
-                                    <!-- سيتم تعبئتها بواسطة JavaScript -->
+                                    <p>جاري التحميل...</p>
                                 </div>
                             </div>
                         </div>
@@ -355,7 +408,7 @@
                                         <input type="checkbox" id="buffetToggle">
                                         <span class="slider"></span>
                                     </label>
-                                    <span id="buffetStatusText">مفتوح</span>
+                                    <span id="buffetStatusText">جاري التحميل...</span>
                                 </div>
                                 <p class="setting-description">
                                     فتح/إغلاق النظام للطلبات
@@ -369,7 +422,7 @@
                                         <input type="checkbox" id="prayerToggle">
                                         <span class="slider"></span>
                                     </label>
-                                    <span id="prayerStatusText">متوقف</span>
+                                    <span id="prayerStatusText">جاري التحميل...</span>
                                 </div>
                                 <p class="setting-description">
                                     إيقاف النظام أثناء الصلاة
@@ -400,6 +453,7 @@
                                 <button id="restoreBtn" class="btn-secondary">
                                     <i class="fas fa-upload"></i> استعادة نسخة
                                 </button>
+                                <input type="file" id="restoreFile" accept=".json" style="display: none;">
                             </div>
                         </div>
                     </section>
@@ -461,7 +515,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary close-modal">إلغاء</button>
-                <button type="submit" form="productForm" class="btn-primary" id="saveProductBtn">
+                <button type="button" id="saveProductBtn" class="btn-primary">
                     <i class="fas fa-save"></i> حفظ
                 </button>
             </div>
@@ -494,7 +548,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary close-modal">إلغاء</button>
-                <button type="submit" form="userForm" class="btn-primary" id="saveUserBtn">
+                <button type="button" id="saveUserBtn" class="btn-primary">
                     <i class="fas fa-save"></i> حفظ
                 </button>
             </div>
@@ -519,7 +573,6 @@
     <div id="notificationArea" class="notification-area"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="admin.js"></script>
 </body>
 </html>
