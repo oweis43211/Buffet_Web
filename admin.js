@@ -141,72 +141,84 @@ function initializeAdminApp() {
 }
 // إعداد مستمعي الأحداث
 function setupAdminEventListeners() {
+    console.log('Setting up event listeners...');
+    
     // تسجيل دخول المسؤول
-    adminElements.adminLoginBtn.addEventListener('click', handleAdminLogin);
-    adminElements.adminPassword.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleAdminLogin();
-    });
+    if (adminElements.adminLoginBtn) {
+        adminElements.adminLoginBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Admin login clicked');
+            handleAdminLogin();
+        });
+    }
     
-    adminElements.backToMainBtn.addEventListener('click', () => {
-        window.location.href = 'index.html';
-    });
+    // العودة للتطبيق الرئيسي
+    if (adminElements.backToMainBtn) {
+        adminElements.backToMainBtn.addEventListener('click', function() {
+            console.log('Return to main clicked');
+            window.location.href = 'index.html';
+        });
+    }
     
-    adminElements.adminLogoutBtn.addEventListener('click', handleAdminLogout);
+    // تسجيل الخروج
+    if (adminElements.adminLogoutBtn) {
+        adminElements.adminLogoutBtn.addEventListener('click', function() {
+            console.log('Admin logout clicked');
+            handleAdminLogout();
+        });
+    }
     
     // القائمة الجانبية
     adminElements.menuItems.forEach(item => {
-        item.addEventListener('click', () => {
-            const section = item.dataset.section;
+        item.addEventListener('click', function() {
+            const section = this.dataset.section;
+            console.log('Menu item clicked:', section);
             switchSection(section);
         });
     });
     
-    // الأزرار
-    adminElements.addProductBtn.addEventListener('click', () => showProductModal('add'));
-    adminElements.addUserBtn.addEventListener('click', () => showUserModal('add'));
-    adminElements.refreshOrdersBtn.addEventListener('click', loadOrders);
-    adminElements.generateReportBtn.addEventListener('click', generateReport);
+    // الأزرار الأخرى
+    if (adminElements.addProductBtn) {
+        adminElements.addProductBtn.addEventListener('click', function() {
+            console.log('Add product clicked');
+            showProductModal('add');
+        });
+    }
     
-    // إعدادات النظام
-    adminElements.buffetToggle.addEventListener('change', updateSystemStatus);
-    adminElements.prayerToggle.addEventListener('change', updateSystemStatus);
-    
-    // التحميل والاستعادة
-    adminElements.backupBtn.addEventListener('click', createBackup);
-    adminElements.restoreBtn.addEventListener('click', () => {
-        document.getElementById('restoreFile').click();
-    });
-    
-    // النماذج المنبثقة
-    document.getElementById('productForm').addEventListener('submit', handleProductSubmit);
-    document.getElementById('userForm').addEventListener('submit', handleUserSubmit);
-    
-    // إغلاق النماذج
+    // إغلاق النماذج المنبثقة
     document.querySelectorAll('.close-modal').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', function() {
             document.querySelectorAll('.modal').forEach(modal => {
                 modal.classList.add('hidden');
             });
         });
     });
     
-    // الفلاتر
-    adminElements.orderStatusFilter.addEventListener('change', loadOrders);
-    adminElements.orderDateFilter.addEventListener('change', loadOrders);
+    console.log('Event listeners setup complete');
 }
-
-// تسجيل دخول المسؤول
 function handleAdminLogin() {
-    const username = adminElements.adminUsername.value.trim();
-    const password = adminElements.adminPassword.value.trim();
+    console.log('Login button clicked');
     
+    const username = adminElements.adminUsername?.value?.trim();
+    const password = adminElements.adminPassword?.value?.trim();
+    
+    if (!username || !password) {
+        showMessage(adminElements.adminLoginMessage, 'يرجى إدخال اسم المستخدم وكلمة المرور', 'error');
+        return;
+    }
+    
+    console.log('Attempting login with:', { username, password });
+    
+    // بيانات الدخول الثابتة
     if (username === 'admin' && password === '5555') {
+        console.log('Login successful');
         adminState.authenticated = true;
         localStorage.setItem('admin_authenticated', 'true');
         showAdminPanel();
         loadDashboardData();
         showNotification('تم تسجيل الدخول كمسؤول بنجاح', 'success');
     } else {
+        console.log('Login failed');
         showMessage(adminElements.adminLoginMessage, 'بيانات الدخول غير صحيحة', 'error');
     }
 }
@@ -1323,3 +1335,35 @@ window.editProduct = editProduct;
 window.deleteProduct = deleteProduct;
 window.editUser = editUser;
 window.deleteUser = deleteUser;
+
+// دالة لإظهار رسالة التأكيد
+function showConfirmation(message, callback) {
+    if (confirm(message)) {
+        callback();
+    }
+}
+
+// اختبار بسيط للتحقق من عمل الأزرار
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM fully loaded');
+    
+    // اختبار الأزرار الأساسية
+    const testButtons = [
+        { id: 'adminLoginBtn', event: 'click' },
+        { id: 'backToMainBtn', event: 'click' },
+        { id: 'addProductBtn', event: 'click' }
+    ];
+    
+    testButtons.forEach(btn => {
+        const element = document.getElementById(btn.id);
+        if (element) {
+            console.log(`${btn.id} found`);
+            element.addEventListener(btn.event, function(e) {
+                console.log(`${btn.id} clicked`);
+                e.preventDefault();
+            });
+        } else {
+            console.warn(`${btn.id} not found`);
+        }
+    });
+});
