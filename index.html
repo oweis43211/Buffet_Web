@@ -1457,7 +1457,7 @@
     <div id="loginScreen" class="screen">
         <div class="login-container">
             <div class="app-header">
-                <h1><i class="fas fa-utensils"></i>نظام البوفيه</h1>
+                <h1><i class="fas fa-utensils"></i> نظام البوفيه الذكي</h1>
                 <p>نظام طلبات الطعام والمشروبات</p>
             </div>
             
@@ -1486,7 +1486,7 @@
             </div>
             
             <div class="footer">
-                <p>تم التطوير من قبل : أويس محمد</p>
+                <p>تم التطوير من قبل فريق البوفيه</p>
                 <p class="system-status">
                     <span id="systemStatusText">جاري تحميل حالة النظام...</span>
                 </p>
@@ -2175,10 +2175,9 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="productImage"><i class="fas fa-image"></i> صورة المنتج:</label>
+                        <label for="productImage">صورة المنتج:</label>
                         <input type="file" id="productImage" accept="image/*">
-                        <!-- معاينة الصورة ستظهر هنا -->
-                        <img id="imagePreview" src="" alt="معاينة الصورة" style="display: none; max-width: 200px; margin-top: 10px; border-radius: var(--border-radius);">
+                        <img id="currentImagePreview" style="max-width: 200px; max-height: 150px; margin-top: 10px; display: none;" alt="الصورة الحالية">
                     </div>
                     
                     <div class="form-group">
@@ -2421,31 +2420,9 @@
         // ==================== التطبيق الرئيسي ====================
 
         // تهيئة التطبيق الرئيسي
-        // تهيئة التطبيق الرئيسي
         function initializeApp() {
-            const savedUser = localStorage.getItem('buffet_user');
-            const savedUsername = localStorage.getItem('buffet_username');
-            
-            if (savedUser && savedUsername) {
-                appState.loggedIn = true;
-                appState.username = savedUsername;
-                showMainScreen();
-                loadUserData();
-            } else {
-                showLoginScreen(); // هذا سيظهر شاشة تسجيل دخول المستخدم أولاً
-            }
-        }
-        
-        // تهيئة تطبيق الإدارة
-        function initializeAdminApp() {
-            // لا تعرض شاشة الإدارة تلقائياً
-            // فقط استعد حالة المصادقة إذا كانت موجودة
-            const adminAuth = localStorage.getItem('admin_authenticated');
-            
-            if (adminAuth === 'true') {
-                adminState.authenticated = true;
-                // لا تظهر لوحة التحكم تلقائياً
-            }
+            // دائماً عرض شاشة تسجيل الدخول أولاً
+            showLoginScreen();
         }
 
         // إعداد مستمعي الأحداث الرئيسية
@@ -2499,7 +2476,6 @@
         }
 
         // تسجيل الدخول
-        // تسجيل الدخول
         async function handleLogin() {
             const username = elements.usernameInput.value.trim();
             const password = elements.passwordInput.value.trim();
@@ -2537,7 +2513,6 @@
                 
                 showMainScreen();
                 loadUserData();
-                updateAdminButtonVisibility(); // إظهار زر المسؤول
                 showNotification('تم تسجيل الدخول بنجاح!', 'success');
                 
             } catch (error) {
@@ -2546,7 +2521,6 @@
             }
         }
 
-        // تسجيل الخروج
         // تسجيل الخروج
         function handleLogout() {
             appState.loggedIn = false;
@@ -2558,7 +2532,6 @@
             localStorage.removeItem('buffet_username');
             
             showLoginScreen();
-            updateAdminButtonVisibility(); // إخفاء زر المسؤول
             showNotification('تم تسجيل الخروج بنجاح', 'success');
         }
 
@@ -4029,7 +4002,12 @@
                 document.getElementById('productCode').value = product.code;
                 document.getElementById('productName').value = product.item;
                 document.getElementById('productPrice').value = product.price;
-                document.getElementById('productImage').value = product.image_url || '';
+                // لا نعين قيمة للصورة، لكن نعرض الصورة الحالية
+                const imagePreview = document.getElementById('currentImagePreview');
+                if (imagePreview) {
+                    imagePreview.src = product.image_url || '';
+                    imagePreview.style.display = product.image_url ? 'block' : 'none';
+                }
                 
                 const availability = product.availability || {};
                 document.getElementById('initialStock').value = availability.available_qty || 0;
@@ -4043,17 +4021,49 @@
             modal.classList.remove('hidden');
         }
 
+        // معالجة حفظ المنتج للإدارة
         async function handleAdminProductSubmit() {
             const form = document.getElementById('productForm');
             const mode = form.dataset.mode;
             const productCode = form.dataset.code;
             
-            // 1. الحصول على بيانات النموذج النصية
+            const fileInput = document.getElementById('productImage');
+            let imageUrl = null;
+            
+            // رفع الصورة إذا تم اختيار ملف
+            if (fileInput.files && fileInput.files[0]) {
+                try {
+                    const file = fileInput.files[0];
+                    const fileName = `product_${Date.now()}_${file.name}`;
+                    
+                    const { data, error } = await supabase.storage
+                        .from('products')
+                        .upload(fileName, file);
+                    
+                    if (error) throw error;
+                    
+                    // الحصول على الرابط العام
+                    const { data: urlData } = supabase.storage
+                        .from('products')
+                        .getPublicUrl(fileName);
+                    
+                    imageUrl = urlData.publicUrl;
+                } catch (error) {
+                    console.error('Error uploading image:', error);
+                    showNotification('خطأ في رفع الصورة: ' + error.message, 'error');
+                    return;
+                }
+            } else if (mode === 'edit') {
+                // في التعديل، إذا لم يتم اختيار صورة جديدة، احتفظ بالقديمة
+                const existingProduct = adminState.products.find(p => p.code == productCode);
+                imageUrl = existingProduct ? existingProduct.image_url : null;
+            }
+            
             const productData = {
                 code: parseInt(document.getElementById('productCode').value) || 0,
                 item: document.getElementById('productName').value.trim(),
                 price: parseFloat(document.getElementById('productPrice').value) || 0,
-                // image_url سيتم تحديثه بعد رفع الملف
+                image_url: imageUrl
             };
             
             const stockData = {
@@ -4062,38 +4072,20 @@
                 available_qty: parseInt(document.getElementById('initialStock').value) || 0
             };
             
-            // 2. التعامل مع ملف الصورة (إن وجد)
-            const imageFile = document.getElementById('productImage').files[0];
-            let imageUrl = null; // المتغير الذي سيحمل الرابط النهائي
+            // التحقق من البيانات
+            if (!productData.code || !productData.item || productData.price <= 0) {
+                showNotification('يرجى ملء جميع الحقول بشكل صحيح', 'error');
+                return;
+            }
             
             try {
-                // في حالة التعديل: احتفظ بالرابط القديم إذا لم يتم اختيار ملف جديد
-                if (mode === 'edit' && !imageFile) {
-                    // لا يوجد ملف جديد، ابحث عن الرابط القديم من القائمة
-                    const oldProduct = adminState.products.find(p => p.code == productCode);
-                    if (oldProduct) imageUrl = oldProduct.image_url;
-                }
-                // إذا كان هناك ملف جديد أو في حالة الإضافة: ارفعه
-                else if (imageFile) {
-                    showNotification('جاري رفع صورة المنتج...', 'info');
-                    imageUrl = await uploadProductImage(imageFile, productData.code);
-                }
-                
-                // 3. الآن أضف الرابط النهائي إلى بيانات المنتج
-                productData.image_url = imageUrl; // قد يكون رابطًا جديدًا أو قديمًا أو null
-                
-                // 4. التحقق من البيانات (باقي الكود كما هو)
-                if (!productData.code || !productData.item || productData.price <= 0) {
-                    showNotification('يرجى ملء جميع الحقول بشكل صحيح', 'error');
-                    return;
-                }
-                
-                // 5. حفظ/تحديث المنتج في قاعدة البيانات
                 if (mode === 'add') {
+                    // إضافة منتج جديد
                     await supabase.from('prices').insert(productData);
                     await supabase.from('availability').insert(stockData);
                     showNotification('تم إضافة المنتج بنجاح', 'success');
                 } else {
+                    // تحديث المنتج الموجود
                     await supabase.from('prices')
                         .update(productData)
                         .eq('code', productCode);
@@ -4105,7 +4097,7 @@
                     showNotification('تم تحديث المنتج بنجاح', 'success');
                 }
                 
-                // 6. إغلاق النافذة وتحديث البيانات
+                // إغلاق النافذة وتحديث البيانات
                 elements.productModal.classList.add('hidden');
                 await loadAdminProducts();
                 await loadAdminInventory();
@@ -4115,6 +4107,31 @@
                 showNotification('خطأ في حفظ المنتج: ' + error.message, 'error');
             }
         }
+
+        // حذف منتج للإدارة
+        window.deleteAdminProduct = async function(code) {
+            if (!confirm('هل أنت متأكد من حذف هذا المنتج؟\nسيتم حذف جميع البيانات المرتبطة به.')) {
+                return;
+            }
+            
+            try {
+                await supabase.from('prices').delete().eq('code', code);
+                await supabase.from('availability').delete().eq('code', code);
+                
+                showNotification('تم حذف المنتج بنجاح', 'success');
+                await loadAdminProducts();
+                await loadAdminInventory();
+                
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                showNotification('خطأ في حذف المنتج', 'error');
+            }
+        };
+
+        // تعديل منتج للإدارة
+        window.editAdminProduct = function(code) {
+            showAdminProductModal('edit', code);
+        };
 
         // عرض نافذة المستخدم للإدارة
         function showAdminUserModal(mode, username = null) {
@@ -4589,69 +4606,6 @@
             }
         }
 
-        // دالة لعرض معاينة الصورة قبل رفعها
-function setupImagePreview() {
-    const imageInput = document.getElementById('productImage');
-    const imagePreview = document.getElementById('imagePreview');
-    
-    if (imageInput && imagePreview) {
-        imageInput.addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imagePreview.src = e.target.result;
-                    imagePreview.style.display = 'block';
-                };
-                reader.readAsDataURL(file);
-            } else {
-                imagePreview.style.display = 'none';
-            }
-        });
-    }
-}
-
-        // دالة لرفع الصورة إلى Supabase Storage (وتحتاج لتمكينه في مشروعك)
-        async function uploadProductImage(file, productCode) {
-            try {
-                // 1. قم بتمكين Storage في مشروع Supabase أولاً من لوحة التحكم
-                // 2. أنشئ bucket باسم 'product-images' أو مشابه
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${productCode}_${Date.now()}.${fileExt}`;
-                const filePath = `${fileName}`;
-                
-                // رفع الملف إلى الـ Bucket
-                const { data, error } = await supabase
-                    .storage
-                    .from('product-images') // اسم الـ Bucket
-                    .upload(filePath, file);
-                
-                if (error) throw error;
-                
-                // الحصول على رابط عام للصورة
-                const { data: { publicUrl } } = supabase
-                    .storage
-                    .from('product-images')
-                    .getPublicUrl(filePath);
-                
-                return publicUrl;
-                
-            } catch (error) {
-                console.error('خطأ في رفع الصورة:', error);
-                showNotification('فشل رفع الصورة. تأكد من إعدادات التخزين.', 'error');
-                return null;
-            }
-        }
-
-        // عرض/إخفاء زر المسؤول
-        function updateAdminButtonVisibility() {
-            if (appState.loggedIn) {
-                elements.adminBtn.style.display = 'flex';
-            } else {
-                elements.adminBtn.style.display = 'none';
-            }
-        }
-
         // تعريف الدوال على window للوصول من HTML
         window.updateProductQty = updateProductQty;
         window.addToCart = addToCart;
@@ -4665,15 +4619,9 @@ function setupImagePreview() {
         window.deleteAdminUser = deleteAdminUser;
 
         // تهيئة التطبيق عند تحميل الصفحة
-        // تهيئة التطبيق عند تحميل الصفحة
         document.addEventListener('DOMContentLoaded', () => {
-            // تهيئة التطبيق الرئيسي أولاً (يظهر تسجيل دخول المستخدم)
             initializeApp();
-            
-            // تهيئة تطبيق الإدارة (دون عرض أي شيء)
             initializeAdminApp();
-            
-            // إعداد مستمعي الأحداث
             setupEventListeners();
             setupAdminEventListeners();
             checkSystemStatus();
@@ -4687,15 +4635,9 @@ function setupImagePreview() {
                 }
             }, 30000);
             
-            // إخفاء زر المسؤول بشكل افتراضي
-            elements.adminBtn.style.display = 'none';
-            
             console.log('نظام البوفيه الذكي جاهز للاستخدام');
             console.log('بيانات الدخول للمسؤول: admin / 5555');
         });
     </script>
 </body>
 </html>
-
-
-
