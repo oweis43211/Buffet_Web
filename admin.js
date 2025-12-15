@@ -120,7 +120,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // تهيئة تطبيق الإدارة
 function initializeAdminApp() {
+    console.log('Initializing admin app...');
+    
+    // التحقق من وجود عناصر DOM
+    if (!document.getElementById('authScreen') || !document.getElementById('adminPanel')) {
+        console.error('Required DOM elements not found');
+        return;
+    }
+    
     const adminAuth = localStorage.getItem('admin_authenticated');
+    console.log('Admin auth status:', adminAuth);
     
     if (adminAuth === 'true') {
         adminState.authenticated = true;
@@ -130,7 +139,6 @@ function initializeAdminApp() {
         showAuthScreen();
     }
 }
-
 // إعداد مستمعي الأحداث
 function setupAdminEventListeners() {
     // تسجيل دخول المسؤول
