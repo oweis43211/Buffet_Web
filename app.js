@@ -74,6 +74,9 @@ const elements = {
     consumptionTableBody: document.getElementById('consumptionTableBody')
 };
 
+// متغير الفلترة
+let currentCategory = 'all'; // all | drinks | foods
+
 // تهيئة التطبيق
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
@@ -81,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
     checkSystemStatus();
     loadProducts();
     
-    // تحديث تلقائي كل 30 ثانية
     setInterval(() => {
         if (state.loggedIn) {
             loadProducts();
@@ -91,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 30000);
 });
 
-// تهيئة التطبيق
 function initializeApp() {
     const savedUser = localStorage.getItem('buffet_user');
     const savedUsername = localStorage.getItem('buffet_username');
@@ -108,7 +109,6 @@ function initializeApp() {
 
 // إعداد مستمعي الأحداث
 function setupEventListeners() {
-    // تسجيل الدخول
     elements.loginBtn.addEventListener('click', handleLogin);
     elements.passwordInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleLogin();
@@ -117,61 +117,40 @@ function setupEventListeners() {
     elements.changePasswordBtn.addEventListener('click', showChangePasswordModal);
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-
-        // إزالة التفعيل من كل الأزرار
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-
-        // تفعيل الزر الحالي
-        btn.classList.add('active');
-
-        // تحديد التصنيف
-        currentCategory = btn.dataset.category;
-
-        // إعادة عرض المنتجات
-        renderProducts();
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentCategory = btn.dataset.category;
+            renderProducts();
+        });
     });
-});
 
-    
-    // تسجيل الخروج
     elements.logoutBtn.addEventListener('click', handleLogout);
     
-    // السلة
     elements.clearCartBtn.addEventListener('click', clearCart);
     elements.sendOrderBtn.addEventListener('click', () => sendOrder('عادي'));
     elements.sendCashOrderBtn.addEventListener('click', () => sendOrder('كاش'));
     
-    // البحث
     elements.productSearch.addEventListener('input', filterProducts);
     
-    // الأزرار
     elements.viewOrdersBtn.addEventListener('click', showOrdersModal);
     elements.viewConsumptionBtn.addEventListener('click', showConsumptionModal);
     
-    // زر لوحة التحكم
     elements.adminBtn.addEventListener('click', () => {
         window.location.href = 'admin.html';
     });
     
-    // تغيير كلمة المرور
     elements.savePasswordBtn.addEventListener('click', handleChangePassword);
     
-    // إغلاق النماذج المنبثقة
     document.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.classList.add('hidden');
-            });
+            document.querySelectorAll('.modal').forEach(modal => modal.classList.add('hidden'));
         });
     });
-    
-    // إغلاق النماذج عند النقر خارجها
+
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.classList.add('hidden');
-            }
+            if (e.target === modal) modal.classList.add('hidden');
         });
     });
 }
@@ -204,11 +183,9 @@ async function handleLogin() {
             return;
         }
         
-        // تسجيل الدخول الناجح
         state.loggedIn = true;
         state.username = username;
         
-        // حفظ في localStorage
         localStorage.setItem('buffet_user', password);
         localStorage.setItem('buffet_username', username);
         
@@ -272,8 +249,6 @@ async function loadProducts() {
 }
 
 // عرض المنتجات
-let currentCategory = 'all'; // all | drinks | foods
-
 function renderProducts() {
     elements.productsGrid.innerHTML = '';
 
@@ -286,16 +261,10 @@ function renderProducts() {
     const foods  = state.products.filter(p => p.code >= 100 && p.code <= 135);
 
     let allProducts = [];
+    if (currentCategory === 'drinks') allProducts = drinks;
+    else if (currentCategory === 'foods') allProducts = foods;
+    else allProducts = [...drinks, ...foods];
 
-    if (currentCategory === 'drinks') {
-        allProducts = drinks;
-    } else if (currentCategory === 'foods') {
-        allProducts = foods;
-    } else {
-        allProducts = [...drinks, ...foods];
-    }
-
-    // البحث
     const searchTerm = elements.productSearch.value.toLowerCase();
     let filteredProducts = allProducts;
 
@@ -320,6 +289,16 @@ function renderProducts() {
         productCard.className = `product-card ${!isAvailable ? 'unavailable' : ''}`;
 
         productCard.innerHTML = `
+            ${product.image_url ? 
+                `<img src="${product.image_url}" 
+                      alt="${product.item}" 
+                      class="product-image"
+                      onerror="this.src='https://via.placeholder.com/250x150?text=No+Image'">`
+                :
+                `<div class="product-image" style="display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-box" style="font-size:48px;color:#666;"></i>
+                 </div>`
+            }
             <div class="product-info">
                 <div class="product-name">${product.item}</div>
                 <div class="product-price">${product.price} جنيه</div>
@@ -338,11 +317,9 @@ function renderProducts() {
                 </button>
             </div>
         `;
-
         elements.productsGrid.appendChild(productCard);
     });
 }
-
 
 // تحديث كمية المنتج
 window.updateProductQty = function(code, change) {
@@ -364,7 +341,7 @@ window.updateProductQty = function(code, change) {
 window.addToCart = function(code) {
     const currentQty = state.selectedProducts[code] || 0;
     if (currentQty > 0) {
-        updateProductQty(code, 0); // سيؤدي إلى تحديث السلة
+        updateProductQty(code, 0);
         showNotification('تمت إضافة المنتج إلى السلة', 'success');
     }
 };
