@@ -1883,6 +1883,7 @@ function createProductCard(product) {
     }
 
     // إرسال الطلب
+    // إرسال الطلب
     async function sendOrder(orderType) {
         const place = elements.place.value.trim();
         const note = elements.note.value.trim();
@@ -1910,8 +1911,14 @@ function createProductCard(product) {
         
         try {
             const batchId = `${appState.username}_${Date.now()}`;
-            const nowDate = new Date().toISOString().split('T')[0];
-            const nowTime = new Date().toLocaleTimeString('ar-EG', { hour12: false });
+            const now = new Date();
+            const nowDate = now.toISOString().split('T')[0];
+            
+            // الحصول على الوقت بتنسيق إنجليزي (HH:MM:SS)
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const nowTime = `${hours}:${minutes}:${seconds}`;
             
             let totalAll = 0;
             const productsData = [];
@@ -1935,6 +1942,7 @@ function createProductCard(product) {
                 const totalPrice = product.price * item.qty;
                 totalAll += totalPrice;
                 
+                // إضافة بيانات المنتج للطلب
                 productsData.push({
                     code: item.code,
                     item: item.name,
@@ -1943,6 +1951,7 @@ function createProductCard(product) {
                     total: totalPrice
                 });
                 
+                // إضافة بيانات المنتج للمصاريف
                 expensesRows.push({
                     username: appState.username,
                     code: item.code,
@@ -1958,10 +1967,14 @@ function createProductCard(product) {
                 
                 // تحديث المخزون
                 const newQty = Math.max(0, availableQty - item.qty);
-                await supabase
+                const { error: updateError } = await supabase
                     .from('availability')
                     .update({ available_qty: newQty })
                     .eq('code', item.code);
+                
+                if (updateError) {
+                    console.error('Error updating availability:', updateError);
+                }
             }
             
             if (productsData.length === 0) {
@@ -1970,28 +1983,44 @@ function createProductCard(product) {
             }
             
             // إدخال الطلب
-            await supabase
+            const { data: orderData, error: orderError } = await supabase
                 .from('orders')
                 .insert({
                     username: appState.username,
                     place: place,
-                    status: 'في الانتظار',
+                    status: "في الانتظار",
                     order_type: orderType,
-                    note: note,
+                    note: note || "",
                     batch_id: batchId,
                     products: productsData,
                     total: totalAll,
                     date: nowDate,
                     time: nowTime
-                });
+                })
+                .select();
+            
+            if (orderError) {
+                console.error('Error inserting order:', orderError);
+                showNotification(`حدث خطأ أثناء حفظ الطلب: ${orderError.message}`, 'error');
+                return;
+            }
+            
+            console.log('Order inserted successfully:', orderData);
             
             // إدخال المصروفات
-            await supabase
-                .from('expenses')
-                .insert(expensesRows);
+            if (expensesRows.length > 0) {
+                const { error: expenseError } = await supabase
+                    .from('expenses')
+                    .insert(expensesRows);
+                
+                if (expenseError) {
+                    console.error('Error inserting expenses:', expenseError);
+                }
+            }
             
             // إعادة تعيين
             appState.selectedProducts = {};
+            appState.cart = [];
             elements.place.value = '';
             elements.note.value = '';
             
@@ -2003,12 +2032,13 @@ function createProductCard(product) {
             ]);
             
             updateCartDisplay();
+            renderProducts();
             
             showNotification(`تم إرسال طلبك بنجاح! الإجمالي: ${totalAll.toFixed(2)} جنيه`, 'success');
             
         } catch (error) {
             console.error('Error sending order:', error);
-            showNotification('حدث خطأ أثناء إرسال الطلب', 'error');
+            showNotification(`حدث خطأ غير متوقع: ${error.message}`, 'error');
         }
     }
 
