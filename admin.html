@@ -871,6 +871,7 @@
                 <p>الدخول للمسؤولين فقط</p>
             </div>
             
+            <!-- في قسم المصادقة (شاشة الدخول) -->
             <div class="login-form">
                 <h2><i class="fas fa-user-shield"></i> دخول المسؤول</h2>
                 
@@ -882,6 +883,12 @@
                 <div class="form-group">
                     <label for="adminPassword"><i class="fas fa-lock"></i> كلمة المرور:</label>
                     <input type="password" id="adminPassword" placeholder="كلمة المرور">
+                </div>
+                
+                <!-- أضف هذه السطور لخيار تذكرني -->
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="rememberMe" style="width: auto;">
+                    <label for="rememberMe" style="margin-bottom: 0; font-size: 14px;">تذكرني</label>
                 </div>
                 
                 <button id="adminLoginBtn" class="btn-primary">
@@ -1488,17 +1495,36 @@
 
         // ==================== لوحة التحكم ====================
 
+        // إعداد مهلة الجلسة (بالدقائق)
+        const TEMP_SESSION_MINUTES = 30; // 30 دقيقة للجلسات المؤقتة
+
         // تهيئة تطبيق الإدارة
         function initializeAdminApp() {
-            const adminAuth = localStorage.getItem('admin_authenticated');
+            // التحقق مما إذا كان المستخدم اختار "تذكرني"
+            const rememberMe = localStorage.getItem('remember_me') === 'true';
             
-            if (adminAuth === 'true') {
-                adminState.authenticated = true;
-                showAdminPanel();
-                loadDashboardData();
+            if (rememberMe) {
+                // إذا اختار "تذكرني"، افحص localStorage فقط
+                const isAuthenticated = localStorage.getItem('admin_authenticated') === 'true';
+                if (isAuthenticated) {
+                    adminState.authenticated = true;
+                    showAdminPanel();
+                    loadDashboardData();
+                    return;
+                }
             } else {
-                showAdminAuthScreen();
+                // إذا لم يختار "تذكرني"، افحص sessionStorage فقط
+                const isAuthenticated = sessionStorage.getItem('admin_authenticated') === 'true';
+                if (isAuthenticated) {
+                    adminState.authenticated = true;
+                    showAdminPanel();
+                    loadDashboardData();
+                    return;
+                }
             }
+            
+            // إذا لم يتم المصادقة بأي طريقة، اعرض شاشة الدخول
+            showAdminAuthScreen();
         }
 
         // إعداد مستمعي الأحداث للإدارة
@@ -1571,6 +1597,7 @@
         async function handleAdminLogin() {
             const username = elements.adminUsername.value.trim();
             const password = elements.adminPassword.value.trim();
+            const rememberMe = document.getElementById('rememberMe')?.checked || false;
             
             // بيانات الدخول الثابتة للمسؤول
             const adminCredentials = {
@@ -1580,10 +1607,26 @@
             
             if (username === adminCredentials.username && password === adminCredentials.password) {
                 adminState.authenticated = true;
-                localStorage.setItem('admin_authenticated', 'true');
+                
+                // حفظ جلسة العمل إذا تم اختيار "تذكرني"
+                if (rememberMe) {
+                    localStorage.setItem('admin_authenticated', 'true');
+                } else {
+                    // استخدام sessionStorage بدلاً من localStorage للجلسات المؤقتة
+                    sessionStorage.setItem('admin_authenticated', 'true');
+                }
+                
+                // تخزين حالة "تذكرني"
+                localStorage.setItem('remember_me', rememberMe.toString());
+                
                 showAdminPanel();
                 loadDashboardData();
                 showMessage(elements.adminLoginMessage, 'تم تسجيل الدخول كمسؤول بنجاح', 'success');
+                
+                // إعادة تعيين حقل "تذكرني" بعد الدخول
+                if (document.getElementById('rememberMe')) {
+                    document.getElementById('rememberMe').checked = false;
+                }
             } else {
                 showMessage(elements.adminLoginMessage, 'اسم المستخدم أو كلمة المرور غير صحيحة', 'error');
             }
@@ -1592,7 +1635,12 @@
         // تسجيل خروج المسؤول
         function handleAdminLogout() {
             adminState.authenticated = false;
+            
+            // تنظيف جميع التخزينات
             localStorage.removeItem('admin_authenticated');
+            sessionStorage.removeItem('admin_authenticated');
+            localStorage.removeItem('remember_me');
+            
             showAdminAuthScreen();
         }
 
@@ -2447,7 +2495,7 @@
             
             const fileInput = document.getElementById('productImage');
             let imageUrl = null;
-            
+             
             // رفع الصورة إذا تم اختيار ملف
             if (fileInput.files && fileInput.files[0]) {
                 try {
