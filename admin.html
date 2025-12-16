@@ -1130,6 +1130,19 @@
                             </div>
                         </div>
                         
+                        <div class="filters-row">
+                            <select id="inventoryFilter" onchange="filterInventory()">
+                                <option value="all">جميع المنتجات</option>
+                                <option value="available">متاح فقط</option>
+                                <option value="low">ناقص المخزون</option>
+                                <option value="unavailable">غير متاح</option>
+                            </select>
+                            
+                            <button id="refreshInventoryBtn" class="btn-secondary" onclick="loadAdminInventory()">
+                                <i class="fas fa-sync"></i> تحديث
+                            </button>
+                        </div>
+                        
                         <div class="data-table">
                             <table id="inventoryTable">
                                 <thead>
@@ -1137,14 +1150,12 @@
                                         <th>الكود</th>
                                         <th>اسم المنتج</th>
                                         <th>المخزون الحالي</th>
-                                        <th>الحد الأدنى</th>
                                         <th>الحالة</th>
-                                        <th>تحديث المخزون</th>
                                     </tr>
                                 </thead>
                                 <tbody id="inventoryTableBody">
                                     <tr>
-                                        <td colspan="6" class="empty">جاري تحميل المخزون...</td>
+                                        <td colspan="5" class="empty">جاري تحميل المخزون...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1744,21 +1755,38 @@
             try {
                 showAdminLoading('products');
                 
-                const { data, error } = await supabase
+                // جلب المنتجات
+                const { data: products, error: productsError } = await supabase
                     .from('prices')
-                    .select('*, availability(*)')
+                    .select('*')
                     .order('code');
                 
-                if (error) throw error;
+                if (productsError) throw productsError;
                 
-                adminState.products = data || [];
+                // جلب حالة التوفر
+                const { data: availability, error: availabilityError } = await supabase
+                    .from('availability')
+                    .select('*');
+                
+                if (availabilityError) throw availabilityError;
+                
+                // دمج البيانات
+                const productsWithAvailability = products.map(product => {
+                    const availabilityData = availability?.find(item => item.code === product.code) || {};
+                    return {
+                        ...product,
+                        availability: availabilityData
+                    };
+                });
+                
+                adminState.products = productsWithAvailability || [];
                 displayAdminProducts();
                 
             } catch (error) {
                 console.error('Error loading products:', error);
                 elements.productsTableBody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="empty">خطأ في تحميل المنتجات</td>
+                        <td colspan="7" class="empty">خطأ في تحميل المنتجات: ${error.message}</td>
                     </tr>
                 `;
             }
@@ -1983,14 +2011,52 @@
             try {
                 showAdminLoading('inventory');
                 
+                // جلب البيانات من الجدولين معاً
                 const { data, error } = await supabase
                     .from('availability')
-                    .select('*, prices(item)')
+                    .select(`
+                        code,
+                        available,
+                        available_qty,
+                        prices!inner (
+                            item,
+                            price
+                        )
+                    `)
                     .order('code');
                 
-                if (error) throw error;
+                if (error) {
+                    // إذا فشلت الاستعلام السابقة، نجرب طريقة بديلة
+                    console.warn('JOIN query failed, trying alternative method:', error);
+                    
+                    // الطريقة البديلة: جلب البيانات من كلا الجدولين بشكل منفصل
+                    const [availabilityRes, pricesRes] = await Promise.all([
+                        supabase.from('availability').select('*').order('code'),
+                        supabase.from('prices').select('*').order('code')
+                    ]);
+                    
+                    if (availabilityRes.error) throw availabilityRes.error;
+                    if (pricesRes.error) throw pricesRes.error;
+                    
+                    // دمج البيانات يدوياً
+                    const availabilityData = availabilityRes.data || [];
+                    const pricesData = pricesRes.data || [];
+                    
+                    const mergedData = availabilityData.map(availability => {
+                        const priceInfo = pricesData.find(p => p.code === availability.code);
+                        return {
+                            code: availability.code,
+                            available: availability.available,
+                            available_qty: availability.available_qty,
+                            prices: priceInfo || { item: 'غير معروف', price: 0 }
+                        };
+                    });
+                    
+                    adminState.inventory = mergedData;
+                } else {
+                    adminState.inventory = data || [];
+                }
                 
-                adminState.inventory = data || [];
                 displayAdminInventory();
                 updateAdminInventoryStats();
                 
@@ -1998,7 +2064,7 @@
                 console.error('Error loading inventory:', error);
                 elements.inventoryTableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="empty">خطأ في تحميل المخزون</td>
+                        <td colspan="6" class="empty">خطأ في تحميل المخزون: ${error.message}</td>
                     </tr>
                 `;
             }
@@ -2006,10 +2072,10 @@
 
         // عرض المخزون للإدارة
         function displayAdminInventory() {
-            if (!adminState.inventory.length) {
+            if (!adminState.inventory || adminState.inventory.length === 0) {
                 elements.inventoryTableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="empty">لا توجد بيانات مخزون</td>
+                        <td colspan="5" class="empty">لا توجد بيانات مخزون</td>
                     </tr>
                 `;
                 return;
@@ -2020,28 +2086,17 @@
             adminState.inventory.forEach(item => {
                 const status = item.available ? 'متاح' : 'غير متاح';
                 const statusClass = item.available ? 'status-available' : 'status-unavailable';
-                const stockClass = item.available_qty < 10 ? 'low-stock' : '';
+                const stockClass = (item.available_qty || 0) < 10 ? 'low-stock' : '';
+                const itemName = item.prices?.item || 'غير معروف';
+                const price = item.prices?.price || 0;
+                const qty = item.available_qty || 0;
                 
                 html += `
                     <tr>
                         <td>${item.code}</td>
-                        <td>${item.prices?.item || 'غير معروف'}</td>
-                        <td class="${stockClass}">${item.available_qty}</td>
-                        <td>10</td>
+                        <td>${itemName}<br><small class="text-muted">السعر: ${price} جنيه</small></td>
+                        <td class="${stockClass}">${qty}</td>
                         <td><span class="status ${statusClass}">${status}</span></td>
-                        <td>
-                            <div class="stock-control">
-                                <button class="btn-icon" onclick="updateAdminStock(${item.code}, -1)" title="تقليل">
-                                    <i class="fas fa-minus"></i>
-                                </button>
-                                <button class="btn-icon" onclick="updateAdminStock(${item.code}, 1)" title="زيادة">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                                <button class="btn-icon" onclick="updateAdminStock(${item.code}, 10)" title="إضافة 10">
-                                    +10
-                                </button>
-                            </div>
-                        </td>
                     </tr>
                 `;
             });
@@ -2397,20 +2452,53 @@
             if (fileInput.files && fileInput.files[0]) {
                 try {
                     const file = fileInput.files[0];
-                    const fileName = `product_${Date.now()}_${file.name}`;
                     
-                    const { data, error } = await supabase.storage
-                        .from('products')
-                        .upload(fileName, file);
+                    // التحقق من حجم الصورة
+                    if (file.size > 5 * 1024 * 1024) { // 5MB
+                        alert('حجم الصورة كبير جداً. الحد الأقصى 5MB');
+                        return;
+                    }
                     
-                    if (error) throw error;
+                    // التحقق من نوع الملف
+                    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+                    if (!validTypes.includes(file.type)) {
+                        alert('نوع الملف غير مدعوم. يرجى استخدام صورة (JPEG, PNG, GIF, WebP)');
+                        return;
+                    }
                     
-                    // الحصول على الرابط العام
+                    // إنشاء اسم فريد للملف
+                    const fileExtension = file.name.split('.').pop();
+                    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExtension}`;
+                    
+                    console.log('جاري رفع الصورة:', fileName);
+                    
+                    // رفع الصورة إلى Supabase Storage
+                    const { data: uploadData, error: uploadError } = await supabase.storage
+                        .from('product-images')
+                        .upload(fileName, file, {
+                            contentType: file.type,
+                            upsert: false
+                        });
+                    
+                    if (uploadError) {
+                        // إذا كان Bucket غير موجود، نحاول إنشاؤه
+                        if (uploadError.message.includes('bucket') || uploadError.message.includes('not found')) {
+                            alert('جارٍ إنشاء مجلد الصور... يرجى المحاولة مرة أخرى');
+                            console.log('Bucket غير موجود، يرجى إنشاء bucket يدوياً في Supabase');
+                            console.log('اسم Bucket المطلوب: product-images');
+                            return;
+                        }
+                        throw uploadError;
+                    }
+                    
+                    // الحصول على الرابط العام للصورة
                     const { data: urlData } = supabase.storage
-                        .from('products')
+                        .from('product-images')
                         .getPublicUrl(fileName);
                     
                     imageUrl = urlData.publicUrl;
+                    console.log('تم رفع الصورة بنجاح:', imageUrl);
+                    
                 } catch (error) {
                     console.error('Error uploading image:', error);
                     alert('خطأ في رفع الصورة: ' + error.message);
@@ -2422,6 +2510,7 @@
                 imageUrl = existingProduct ? existingProduct.image_url : null;
             }
             
+            // استمرار باقي الدالة...
             const productData = {
                 code: parseInt(document.getElementById('productCode').value) || 0,
                 item: document.getElementById('productName').value.trim(),
@@ -2443,10 +2532,22 @@
             
             try {
                 if (mode === 'add') {
+                    // التحقق من عدم وجود منتج بنفس الكود
+                    const { data: existing } = await supabase
+                        .from('prices')
+                        .select('code')
+                        .eq('code', productData.code)
+                        .single();
+                    
+                    if (existing) {
+                        alert('يوجد منتج آخر بنفس الكود! يرجى استخدام كود مختلف');
+                        return;
+                    }
+                    
                     // إضافة منتج جديد
                     await supabase.from('prices').insert(productData);
                     await supabase.from('availability').insert(stockData);
-                    alert('تم إضافة المنتج بنجاح');
+                    alert('تم إضافة المنتج بنجاح ✅');
                 } else {
                     // تحديث المنتج الموجود
                     await supabase.from('prices')
@@ -2457,7 +2558,7 @@
                         .update(stockData)
                         .eq('code', productCode);
                     
-                    alert('تم تحديث المنتج بنجاح');
+                    alert('تم تحديث المنتج بنجاح ✅');
                 }
                 
                 // إغلاق النافذة وتحديث البيانات
