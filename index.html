@@ -1932,6 +1932,36 @@
             elements.lastUpdate.textContent = `آخر تحديث: ${timeString}`;
         }
 
+        // التحديث التلقائي
+        function setupAutoRefresh() {
+            // تحديث كل 30 ثانية
+            setInterval(async () => {
+                if (appState.loggedIn) {
+                    await Promise.all([
+                        loadProducts(),
+                        loadUserOrders(),
+                        loadUserConsumption(),
+                        checkSystemStatus()
+                    ]);
+                    
+                    updateLastUpdateTime();
+                    showNotification('تم التحديث التلقائي', 'info', 2000);
+                }
+            }, 10000); // 10 ثانية
+            
+            // تحديث وقت النشاط
+            setInterval(() => {
+                updateLastUpdateTime();
+            }, 30000); // 30 ثانية
+        }
+        
+        // استدعاء الدالة عند تسجيل الدخول
+        function showMainScreen() {
+            hideAllScreens();
+            elements.mainScreen.classList.remove('hidden');
+            setupAutoRefresh();
+        }
+
         // عرض نافذة الطلبات
         function showOrdersModal() {
             elements.ordersTableBody.innerHTML = '';
@@ -2290,4 +2320,5 @@
     </script>
 </body>
 </html>
+
 
