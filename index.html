@@ -1559,76 +1559,86 @@
                 return;
             }
             
-            filteredProducts.forEach(product => {
-                const availability = appState.availability[product.code] || {};
-                const isAvailable = availability.available !== false;
-                const availableQty = availability.available_qty || 0;
-                const currentQty = appState.selectedProducts[product.code] || 0;
-                
-                const productCard = document.createElement('div');
-                productCard.className = `product-card ${!isAvailable ? 'unavailable' : ''}`;
-                
-                productCard.innerHTML = `
-                    ${product.image_url ? 
-                        `<img src="${product.image_url}" alt="${product.item}" class="product-image" 
-                             onerror="this.src='https://via.placeholder.com/250x150?text=No+Image'">` : 
-                        `<div class="product-image" style="display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-box" style="font-size: 48px; color: #666;"></i>
-                        </div>`
-                    }
-                    <div class="product-info">
-                        <div class="product-name">${product.item}</div>
-                        <div class="product-price">${product.price} جنيه</div>
-                        <div class="product-availability">
-                            ${isAvailable ? 
-                                `المتبقي: ${availableQty}` : 
-                                '<span class="unavailable-badge">غير متوفر</span>'
-                            }
-                        </div>
-                    </div>
-                    <div class="product-actions">
-                        <div class="qty-controls">
-                            <button class="qty-btn" onclick="updateProductQty(${product.code}, -1)" 
-                                    ${currentQty <= 0 ? 'disabled' : ''}>-</button>
-                            <span class="qty-display">${currentQty}</span>
-                            <button class="qty-btn" onclick="updateProductQty(${product.code}, 1)" 
-                                    ${currentQty >= availableQty ? 'disabled' : ''}>+</button>
-                        </div>
-                        <button class="add-to-cart-btn" onclick="addToCart(${product.code})"
-                                ${!isAvailable || availableQty === 0 ? 'disabled' : ''}>
-                            <i class="fas fa-cart-plus"></i>
-                        </button>
-                    </div>
+            // تصنيف المنتجات إلى مجموعات لعرضها بأقسام
+            const filteredDrinks = filteredProducts.filter(p => p.code >= 1 && p.code <= 43);
+            const filteredFoods = filteredProducts.filter(p => p.code >= 100 && p.code <= 135);
+            
+            // عرض المشروبات أولاً
+            if (filteredDrinks.length > 0) {
+                // إضافة عنوان المشروبات
+                const drinksHeader = document.createElement('div');
+                drinksHeader.className = 'section-header';
+                drinksHeader.innerHTML = `
+                    <h2><i class="fas fa-wine-glass-alt"></i> المشروبات</h2>
                 `;
+                elements.productsGrid.appendChild(drinksHeader);
                 
-                elements.productsGrid.appendChild(productCard);
-            });
+                // عرض بطاقات المشروبات
+                filteredDrinks.forEach(product => {
+                    createProductCard(product);
+                });
+            }
+            
+            // عرض المأكولات
+            if (filteredFoods.length > 0) {
+                // إضافة عنوان المأكولات
+                const foodsHeader = document.createElement('div');
+                foodsHeader.className = 'section-header';
+                foodsHeader.innerHTML = `
+                    <h2><i class="fas fa-utensils"></i> المأكولات</h2>
+                `;
+                elements.productsGrid.appendChild(foodsHeader);
+                
+                // عرض بطاقات المأكولات
+                filteredFoods.forEach(product => {
+                    createProductCard(product);
+                });
+            }
         }
 
-        // تحديث كمية المنتج
-        window.updateProductQty = function(code, change) {
-            const currentQty = appState.selectedProducts[code] || 0;
-            const availability = appState.availability[code] || {};
+        // دالة مساعدة لإنشاء بطاقة منتج
+        function createProductCard(product) {
+            const availability = appState.availability[product.code] || {};
+            const isAvailable = availability.available !== false;
             const availableQty = availability.available_qty || 0;
+            const currentQty = appState.selectedProducts[product.code] || 0;
             
-            let newQty = currentQty + change;
-            newQty = Math.max(0, Math.min(newQty, availableQty));
+            const productCard = document.createElement('div');
+            productCard.className = `product-card ${!isAvailable ? 'unavailable' : ''}`;
             
-            if (newQty !== currentQty) {
-                appState.selectedProducts[code] = newQty;
-                updateCart();
-                renderProducts();
-            }
-        };
-
-        // إضافة إلى السلة
-        window.addToCart = function(code) {
-            const currentQty = appState.selectedProducts[code] || 0;
-            if (currentQty > 0) {
-                updateProductQty(code, 0);
-                showNotification('تمت إضافة المنتج إلى السلة', 'success');
-            }
-        };
+            // استخدام صورة افتراضية إذا لم توجد صورة
+            let imageUrl = product.image_url || `https://via.placeholder.com/250x150/1e1e1e/00bfa6?text=${encodeURIComponent(product.item)}`;
+            
+            productCard.innerHTML = `
+                <img src="${imageUrl}" alt="${product.item}" class="product-image"
+                     onerror="this.src='https://via.placeholder.com/250x150/1e1e1e/666?text=No+Image'">
+                <div class="product-info">
+                    <div class="product-name">${product.item}</div>
+                    <div class="product-price">${product.price} جنيه</div>
+                    <div class="product-availability">
+                        ${isAvailable ? 
+                            `<span class="status status-available">متوفر: ${availableQty}</span>` : 
+                            '<span class="status status-unavailable">غير متوفر</span>'
+                        }
+                    </div>
+                </div>
+                <div class="product-actions">
+                    <div class="qty-controls">
+                        <button class="qty-btn" onclick="updateProductQty(${product.code}, -1)" 
+                                ${currentQty <= 0 ? 'disabled' : ''}>-</button>
+                        <span class="qty-display">${currentQty}</span>
+                        <button class="qty-btn" onclick="updateProductQty(${product.code}, 1)" 
+                                ${currentQty >= availableQty ? 'disabled' : ''}>+</button>
+                    </div>
+                    <button class="add-to-cart-btn" onclick="addToCart(${product.code})"
+                            ${!isAvailable || availableQty === 0 ? 'disabled' : ''}>
+                        <i class="fas fa-cart-plus"></i> إضافة
+                    </button>
+                </div>
+            `;
+            
+            elements.productsGrid.appendChild(productCard);
+        }
 
         // تحديث السلة
         function updateCart() {
@@ -1926,64 +1936,181 @@
         function showOrdersModal() {
             elements.ordersTableBody.innerHTML = '';
             
-            appState.orders.forEach(order => {
-                const productsText = order.products?.map(p => 
-                    `${p.item} (${p.qty})`
-                ).join('<br>') || '';
-                
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${order.id}</td>
-                    <td>${order.date}<br>${order.time}</td>
-                    <td>${productsText}</td>
-                    <td>${order.total} جنيه</td>
-                    <td>
-                        <span class="${getStatusClass(order.status)}">
-                            ${order.status}
-                        </span>
-                    </td>
-                    <td>${order.order_type}</td>
+            if (appState.orders.length === 0) {
+                elements.ordersTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="empty">
+                            <i class="fas fa-clipboard-list" style="font-size: 48px; color: #666; margin-bottom: 15px;"></i>
+                            <p>لا توجد طلبات سابقة</p>
+                        </td>
+                    </tr>
                 `;
-                elements.ordersTableBody.appendChild(row);
-            });
+            } else {
+                appState.orders.forEach(order => {
+                    const productsText = order.products?.map(p => 
+                        `${p.item} (${p.qty})`
+                    ).join('<br>') || '';
+                    
+                    // حساب المدة
+                    let durationText = '';
+                    if (order.time_received && order.time_delivered) {
+                        try {
+                            const [trHours, trMinutes] = order.time_received.split(':').map(Number);
+                            const [tdHours, tdMinutes] = order.time_delivered.split(':').map(Number);
+                            
+                            const trDate = new Date();
+                            trDate.setHours(trHours, trMinutes, 0, 0);
+                            
+                            const tdDate = new Date();
+                            tdDate.setHours(tdHours, tdMinutes, 0, 0);
+                            
+                            const durationMs = tdDate - trDate;
+                            const durationMinutes = Math.floor(durationMs / (1000 * 60));
+                            
+                            if (durationMinutes > 0) {
+                                durationText = `${durationMinutes} دقيقة`;
+                            }
+                        } catch (e) {
+                            console.error('Error calculating duration:', e);
+                        }
+                    }
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${order.id}</td>
+                        <td>
+                            <strong>${order.date}</strong><br>
+                            <small class="text-muted">${order.time}</small>
+                        </td>
+                        <td>${productsText}</td>
+                        <td>
+                            <strong style="color: var(--primary-color);">${order.total.toFixed(2)}</strong> جنيه
+                        </td>
+                        <td>
+                            <span class="status ${getStatusClass(order.status)}">
+                                ${order.status}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="${order.order_type === 'كاش' ? 'status status-pending' : 'status status-available'}">
+                                ${order.order_type}
+                            </span>
+                            ${durationText ? `<br><small class="text-muted">(${durationText})</small>` : ''}
+                        </td>
+                    `;
+                    elements.ordersTableBody.appendChild(row);
+                });
+            }
+            
+            // تحديث ترويسة النافذة بالعدد
+            document.querySelector('#ordersModal .modal-header h2').innerHTML = 
+                `<i class="fas fa-clipboard-list"></i> طلباتي السابقة (${appState.orders.length})`;
             
             elements.ordersModal.classList.remove('hidden');
         }
-
         // عرض نافذة الاستهلاك
         function showConsumptionModal() {
             elements.consumptionTableBody.innerHTML = '';
             
-            let totalAll = 0;
-            let totalNormal = 0;
-            let totalCash = 0;
-            
-            appState.consumption.forEach(item => {
-                const total = item.total || 0;
-                totalAll += total;
-                
-                if (item.payment_type === 'كاش') {
-                    totalCash += total;
-                } else {
-                    totalNormal += total;
-                }
-                
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${item.date}<br>${item.time}</td>
-                    <td>${item.item}</td>
-                    <td>${item.qty}</td>
-                    <td>${item.price} جنيه</td>
-                    <td>${total.toFixed(2)} جنيه</td>
-                    <td>${item.payment_type}</td>
+            if (appState.consumption.length === 0) {
+                elements.consumptionTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="empty">
+                            <i class="fas fa-chart-line" style="font-size: 48px; color: #666; margin-bottom: 15px;"></i>
+                            <p>لا توجد بيانات استهلاك</p>
+                        </td>
+                    </tr>
                 `;
-                elements.consumptionTableBody.appendChild(row);
-            });
+            } else {
+                let totalAll = 0;
+                let totalNormal = 0;
+                let totalCash = 0;
+                
+                // تجميع البيانات حسب التاريخ
+                const groupedByDate = {};
+                
+                appState.consumption.forEach(item => {
+                    const date = item.date;
+                    if (!groupedByDate[date]) {
+                        groupedByDate[date] = [];
+                    }
+                    groupedByDate[date].push(item);
+                    
+                    const total = item.total || 0;
+                    totalAll += total;
+                    
+                    if (item.payment_type === 'كاش') {
+                        totalCash += total;
+                    } else {
+                        totalNormal += total;
+                    }
+                });
+                
+                // عرض البيانات مجمعة حسب التاريخ
+                Object.keys(groupedByDate).sort().reverse().forEach(date => {
+                    const dateItems = groupedByDate[date];
+                    let dateTotal = 0;
+                    
+                    // إضافة صف التاريخ كمجموعة
+                    const dateHeader = document.createElement('tr');
+                    dateHeader.className = 'date-group-header';
+                    dateHeader.innerHTML = `
+                        <td colspan="6" style="background: rgba(0, 191, 166, 0.1); font-weight: bold; padding: 10px;">
+                            <i class="fas fa-calendar-day"></i> ${date}
+                        </td>
+                    `;
+                    elements.consumptionTableBody.appendChild(dateHeader);
+                    
+                    // عرض العناصر في هذا التاريخ
+                    dateItems.forEach(item => {
+                        const total = item.total || 0;
+                        dateTotal += total;
+                        
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${item.time}</td>
+                            <td>
+                                <strong>${item.item}</strong><br>
+                                <small class="text-muted">كود: ${item.code}</small>
+                            </td>
+                            <td>${item.qty}</td>
+                            <td>${item.price} جنيه</td>
+                            <td>
+                                <strong style="color: var(--primary-color);">${total.toFixed(2)}</strong> جنيه
+                            </td>
+                            <td>
+                                <span class="${item.payment_type === 'كاش' ? 'status status-pending' : 'status status-available'}">
+                                    ${item.payment_type}
+                                </span>
+                            </td>
+                        `;
+                        elements.consumptionTableBody.appendChild(row);
+                    });
+                    
+                    // إضافة صف المجموع اليومي
+                    const dateTotalRow = document.createElement('tr');
+                    dateTotalRow.className = 'date-total-row';
+                    dateTotalRow.innerHTML = `
+                        <td colspan="4" style="text-align: left; font-weight: bold; padding: 8px 15px;">
+                            المجموع اليومي:
+                        </td>
+                        <td colspan="2" style="font-weight: bold; color: var(--warning-color); padding: 8px 15px;">
+                            ${dateTotal.toFixed(2)} جنيه
+                        </td>
+                    `;
+                    elements.consumptionTableBody.appendChild(dateTotalRow);
+                });
+                
+                // تحديث الإجماليات
+                document.getElementById('totalAll').textContent = totalAll.toFixed(2) + ' جنيه';
+                document.getElementById('totalNormal').textContent = totalNormal.toFixed(2) + ' جنيه';
+                document.getElementById('totalCash').textContent = totalCash.toFixed(2) + ' جنيه';
+            }
             
-            // تحديث الإجماليات
-            document.getElementById('totalAll').textContent = totalAll.toFixed(2) + ' جنيه';
-            document.getElementById('totalNormal').textContent = totalNormal.toFixed(2) + ' جنيه';
-            document.getElementById('totalCash').textContent = totalCash.toFixed(2) + ' جنيه';
+            // تحديث ترويسة النافذة بالعدد
+            const uniqueDates = [...new Set(appState.consumption.map(c => c.date))].length;
+            document.querySelector('#consumptionModal .modal-header h2').innerHTML = 
+                `<i class="fas fa-chart-line"></i> تفاصيل الاستهلاك (${uniqueDates} يوم)`;
             
             elements.consumptionModal.classList.remove('hidden');
         }
@@ -2163,3 +2290,4 @@
     </script>
 </body>
 </html>
+
