@@ -1281,1044 +1281,1082 @@
     <!-- إشعارات -->
     <div id="notificationArea" class="notification-area"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        // تكوين Supabase
-        const SUPABASE_URL = "https://oshbvczwsxpimyneudeg.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zaGJ2Y3p3c3hwaW15bmV1ZGVnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODcxMDkyNCwiZXhwIjoyMDc0Mjg2OTI0fQ.A4QiXm-uC6q8RWV0w67zXNEXnsqQIwJdS7f-efG1vQg";
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+    // تكوين Supabase
+    const SUPABASE_URL = "https://oshbvczwsxpimyneudeg.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zaGJ2Y3p3c3hwaW15bmV1ZGVnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODcxMDkyNCwiZXhwIjoyMDc0Mjg2OTI0fQ.A4QiXm-uC6q8RWV0w67zXNEXnsqQIwJdS7f-efG1vQg";
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // حالة التطبيق الرئيسي
-        let appState = {
-            loggedIn: false,
-            username: null,
-            selectedProducts: {},
-            products: [],
-            availability: {},
-            orders: [],
-            consumption: [],
-            systemStatus: { buffet_open: true, prayer_closed: false },
-            cart: []
-        };
+    // حالة التطبيق الرئيسي
+    let appState = {
+        loggedIn: false,
+        username: null,
+        selectedProducts: {},
+        products: [],
+        availability: {},
+        orders: [],
+        consumption: [],
+        systemStatus: { buffet_open: true, prayer_closed: false },
+        cart: [],
+        autoRefreshInterval: null
+    };
 
-        // عناصر DOM الرئيسية
-        const elements = {
-            loginScreen: document.getElementById('loginScreen'),
-            mainScreen: document.getElementById('mainScreen'),
-            adminBtn: document.getElementById('adminBtn'),
-            
-            // تسجيل الدخول
-            usernameInput: document.getElementById('username'),
-            passwordInput: document.getElementById('password'),
-            loginBtn: document.getElementById('loginBtn'),
-            changePasswordBtn: document.getElementById('changePasswordBtn'),
-            loginMessage: document.getElementById('loginMessage'),
-            
-            // التطبيق الرئيسي
-            userName: document.getElementById('userName'),
-            logoutBtn: document.getElementById('logoutBtn'),
-            buffetStatus: document.getElementById('buffetStatus'),
-            lastUpdate: document.getElementById('lastUpdate'),
-            
-            // الطلب
-            place: document.getElementById('place'),
-            note: document.getElementById('note'),
-            cartItems: document.getElementById('cartItems'),
-            cartTotal: document.getElementById('cartTotal'),
-            clearCartBtn: document.getElementById('clearCartBtn'),
-            sendOrderBtn: document.getElementById('sendOrderBtn'),
-            sendCashOrderBtn: document.getElementById('sendCashOrderBtn'),
-            
-            // المنتجات
-            productSearch: document.getElementById('productSearch'),
-            productsGrid: document.getElementById('productsGrid'),
-            
-            // الإحصائيات
-            myOrdersCount: document.getElementById('myOrdersCount'),
-            myTotalSpent: document.getElementById('myTotalSpent'),
-            viewOrdersBtn: document.getElementById('viewOrdersBtn'),
-            viewConsumptionBtn: document.getElementById('viewConsumptionBtn'),
-            
-            // النماذج المنبثقة
-            ordersModal: document.getElementById('ordersModal'),
-            consumptionModal: document.getElementById('consumptionModal'),
-            changePasswordModal: document.getElementById('changePasswordModal'),
-            
-            // تغيير كلمة المرور
-            changeUsername: document.getElementById('changeUsername'),
-            oldPassword: document.getElementById('oldPassword'),
-            newPassword: document.getElementById('newPassword'),
-            confirmPassword: document.getElementById('confirmPassword'),
-            savePasswordBtn: document.getElementById('savePasswordBtn'),
-            changePasswordMessage: document.getElementById('changePasswordMessage'),
-            
-            // الجداول
-            ordersTableBody: document.getElementById('ordersTableBody'),
-            consumptionTableBody: document.getElementById('consumptionTableBody'),
-            
-            // تبويبات الفئات
-            categoryTabs: document.querySelectorAll('.tab-btn')
-        };
-
-        // ==================== التطبيق الرئيسي ====================
-
-        // تهيئة التطبيق الرئيسي
-        function initializeApp() {
-            showLoginScreen();
-        }
-
-        // إعداد مستمعي الأحداث الرئيسية
-        function setupEventListeners() {
-            // تسجيل الدخول
-            elements.loginBtn.addEventListener('click', handleLogin);
-            elements.passwordInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') handleLogin();
-            });
-            
-            elements.changePasswordBtn.addEventListener('click', showChangePasswordModal);
-            
-            // تسجيل الخروج
-            elements.logoutBtn.addEventListener('click', handleLogout);
-            
-            // السلة
-            elements.clearCartBtn.addEventListener('click', clearCart);
-            elements.sendOrderBtn.addEventListener('click', () => sendOrder('عادي'));
-            elements.sendCashOrderBtn.addEventListener('click', () => sendOrder('كاش'));
-            
-            // البحث
-            elements.productSearch.addEventListener('input', filterProducts);
-            
-            // الأزرار
-            elements.viewOrdersBtn.addEventListener('click', showOrdersModal);
-            elements.viewConsumptionBtn.addEventListener('click', showConsumptionModal);
-            
-            // تبويبات الفئات
-            elements.categoryTabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    elements.categoryTabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    filterProducts();
-                });
-            });
-            
-            // تغيير كلمة المرور
-            elements.savePasswordBtn.addEventListener('click', handleChangePassword);
-            
-            // إغلاق النماذج المنبثقة
-            document.querySelectorAll('.close-modal').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.modal').forEach(modal => {
-                        modal.classList.add('hidden');
-                    });
-                });
-            });
-            
-            // إغلاق النماذج عند النقر خارجها
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) {
-                        modal.classList.add('hidden');
-                    }
-                });
-            });
-        }
-
+    // عناصر DOM الرئيسية
+    const elements = {
+        loginScreen: document.getElementById('loginScreen'),
+        mainScreen: document.getElementById('mainScreen'),
+        adminBtn: document.getElementById('adminBtn'),
+        
         // تسجيل الدخول
-        async function handleLogin() {
-            const username = elements.usernameInput.value.trim();
-            const password = elements.passwordInput.value.trim();
+        usernameInput: document.getElementById('username'),
+        passwordInput: document.getElementById('password'),
+        loginBtn: document.getElementById('loginBtn'),
+        changePasswordBtn: document.getElementById('changePasswordBtn'),
+        loginMessage: document.getElementById('loginMessage'),
+        
+        // التطبيق الرئيسي
+        userName: document.getElementById('userName'),
+        logoutBtn: document.getElementById('logoutBtn'),
+        buffetStatus: document.getElementById('buffetStatus'),
+        lastUpdate: document.getElementById('lastUpdate'),
+        
+        // الطلب
+        place: document.getElementById('place'),
+        note: document.getElementById('note'),
+        cartItems: document.getElementById('cartItems'),
+        cartTotal: document.getElementById('cartTotal'),
+        clearCartBtn: document.getElementById('clearCartBtn'),
+        sendOrderBtn: document.getElementById('sendOrderBtn'),
+        sendCashOrderBtn: document.getElementById('sendCashOrderBtn'),
+        
+        // المنتجات
+        productSearch: document.getElementById('productSearch'),
+        productsGrid: document.getElementById('productsGrid'),
+        
+        // الإحصائيات
+        myOrdersCount: document.getElementById('myOrdersCount'),
+        myTotalSpent: document.getElementById('myTotalSpent'),
+        viewOrdersBtn: document.getElementById('viewOrdersBtn'),
+        viewConsumptionBtn: document.getElementById('viewConsumptionBtn'),
+        
+        // النماذج المنبثقة
+        ordersModal: document.getElementById('ordersModal'),
+        consumptionModal: document.getElementById('consumptionModal'),
+        changePasswordModal: document.getElementById('changePasswordModal'),
+        
+        // تغيير كلمة المرور
+        changeUsername: document.getElementById('changeUsername'),
+        oldPassword: document.getElementById('oldPassword'),
+        newPassword: document.getElementById('newPassword'),
+        confirmPassword: document.getElementById('confirmPassword'),
+        savePasswordBtn: document.getElementById('savePasswordBtn'),
+        changePasswordMessage: document.getElementById('changePasswordMessage'),
+        
+        // الجداول
+        ordersTableBody: document.getElementById('ordersTableBody'),
+        consumptionTableBody: document.getElementById('consumptionTableBody'),
+        
+        // تبويبات الفئات
+        categoryTabs: document.querySelectorAll('.tab-btn')
+    };
+
+    // ==================== التطبيق الرئيسي ====================
+
+    // تهيئة التطبيق الرئيسي
+    function initializeApp() {
+        showLoginScreen();
+        setupEventListeners();
+        checkSystemStatus();
+        
+        // التحقق من تسجيل الدخول السابق
+        const savedUser = localStorage.getItem('buffet_username');
+        const savedPass = localStorage.getItem('buffet_user');
+        
+        if (savedUser && savedPass) {
+            elements.usernameInput.value = savedUser;
+            elements.passwordInput.value = savedPass;
+        }
+        
+        console.log('نظام البوفيه الذكي جاهز للاستخدام');
+    }
+
+    // إعداد مستمعي الأحداث الرئيسية
+    function setupEventListeners() {
+        // تسجيل الدخول
+        elements.loginBtn.addEventListener('click', handleLogin);
+        elements.passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleLogin();
+        });
+        
+        elements.changePasswordBtn.addEventListener('click', showChangePasswordModal);
+        
+        // تسجيل الخروج
+        elements.logoutBtn.addEventListener('click', handleLogout);
+        
+        // السلة
+        elements.clearCartBtn.addEventListener('click', clearCart);
+        elements.sendOrderBtn.addEventListener('click', () => sendOrder('عادي'));
+        elements.sendCashOrderBtn.addEventListener('click', () => sendOrder('كاش'));
+        
+        // البحث
+        elements.productSearch.addEventListener('input', filterProducts);
+        
+        // الأزرار
+        elements.viewOrdersBtn.addEventListener('click', showOrdersModal);
+        elements.viewConsumptionBtn.addEventListener('click', showConsumptionModal);
+        
+        // تبويبات الفئات
+        elements.categoryTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                elements.categoryTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                filterProducts();
+            });
+        });
+        
+        // تغيير كلمة المرور
+        elements.savePasswordBtn.addEventListener('click', handleChangePassword);
+        
+        // إغلاق النماذج المنبثقة
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.modal').forEach(modal => {
+                    modal.classList.add('hidden');
+                });
+            });
+        });
+        
+        // إغلاق النماذج عند النقر خارجها
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+        });
+
+        // زر تحديث المنتجات
+        const refreshBtn = document.getElementById('refreshProductsBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', async () => {
+                await loadProducts();
+                showNotification('تم تحديث المنتجات', 'success');
+            });
+        }
+    }
+
+    // تسجيل الدخول
+    async function handleLogin() {
+        const username = elements.usernameInput.value.trim();
+        const password = elements.passwordInput.value.trim();
+        
+        if (!username || !password) {
+            showMessage(elements.loginMessage, 'يرجى إدخال اسم المستخدم وكلمة المرور', 'error');
+            return;
+        }
+        
+        if (!password.match(/^\d{4}$/)) {
+            showMessage(elements.loginMessage, 'كلمة المرور يجب أن تكون 4 أرقام فقط', 'error');
+            return;
+        }
+        
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('username', username)
+                .eq('password', password)
+                .single();
             
-            if (!username || !password) {
-                showMessage(elements.loginMessage, 'يرجى إدخال اسم المستخدم وكلمة المرور', 'error');
+            if (error || !data) {
+                showMessage(elements.loginMessage, 'اسم المستخدم أو كلمة المرور غير صحيحة', 'error');
                 return;
             }
             
-            if (!password.match(/^\d{4}$/)) {
-                showMessage(elements.loginMessage, 'كلمة المرور يجب أن تكون 4 أرقام فقط', 'error');
-                return;
-            }
+            // تسجيل الدخول الناجح
+            appState.loggedIn = true;
+            appState.username = username;
             
-            try {
-                const { data, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('username', username)
-                    .eq('password', password)
-                    .single();
+            // حفظ في localStorage
+            localStorage.setItem('buffet_user', password);
+            localStorage.setItem('buffet_username', username);
+            
+            showMainScreen();
+            await loadUserData();
+            setupAutoRefresh();
+            showNotification('تم تسجيل الدخول بنجاح!', 'success');
+            
+        } catch (error) {
+            showMessage(elements.loginMessage, 'حدث خطأ أثناء تسجيل الدخول', 'error');
+            console.error('Login error:', error);
+        }
+    }
+
+    // تسجيل الخروج
+    function handleLogout() {
+        appState.loggedIn = false;
+        appState.username = null;
+        appState.selectedProducts = {};
+        appState.cart = [];
+        
+        // إيقاف التحديث التلقائي
+        if (appState.autoRefreshInterval) {
+            clearInterval(appState.autoRefreshInterval);
+            appState.autoRefreshInterval = null;
+        }
+        
+        localStorage.removeItem('buffet_user');
+        localStorage.removeItem('buffet_username');
+        
+        showLoginScreen();
+        showNotification('تم تسجيل الخروج بنجاح', 'success');
+    }
+
+    // تحميل بيانات المستخدم
+    async function loadUserData() {
+        elements.userName.textContent = appState.username;
+        await Promise.all([
+            loadProducts(),
+            loadUserOrders(),
+            loadUserConsumption()
+        ]);
+        updateCartDisplay();
+    }
+
+    // تحميل المنتجات
+    async function loadProducts() {
+        try {
+            const [productsRes, availabilityRes] = await Promise.all([
+                supabase.from('prices').select('*'),
+                supabase.from('availability').select('*')
+            ]);
+            
+            appState.products = productsRes.data || [];
+            appState.availability = {};
+            
+            availabilityRes.data?.forEach(item => {
+                appState.availability[item.code] = item;
+            });
+            
+            renderProducts();
+            updateLastUpdateTime();
+            
+        } catch (error) {
+            console.error('Error loading products:', error);
+            showNotification('خطأ في تحميل المنتجات', 'error');
+        }
+    }
+
+    // عرض المنتجات - محسّن
+    function renderProducts() {
+        elements.productsGrid.innerHTML = '';
+        
+        if (!appState.products.length) {
+            elements.productsGrid.innerHTML = '<div class="loading">لا توجد منتجات متاحة</div>';
+            return;
+        }
+        
+        // تصنيف المنتجات
+        const drinks = appState.products.filter(p => p.code >= 1 && p.code <= 43);
+        const foods = appState.products.filter(p => p.code >= 100 && p.code <= 135);
+        const allProducts = [...drinks, ...foods];
+        
+        // فلترة حسب البحث
+        const searchTerm = elements.productSearch.value.toLowerCase();
+        let filteredProducts = allProducts;
+        
+        if (searchTerm) {
+            filteredProducts = allProducts.filter(p => 
+                p.item?.toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        // فلترة حسب التبويب النشط
+        const activeTab = document.querySelector('.tab-btn.active');
+        if (activeTab) {
+            const category = activeTab.dataset.category;
+            if (category === 'drinks') {
+                filteredProducts = filteredProducts.filter(p => p.code >= 1 && p.code <= 43);
+            } else if (category === 'foods') {
+                filteredProducts = filteredProducts.filter(p => p.code >= 100 && p.code <= 135);
+            }
+        }
+        
+        if (!filteredProducts.length) {
+            elements.productsGrid.innerHTML = '<div class="loading">لم يتم العثور على منتجات</div>';
+            return;
+        }
+        
+        // تصنيف المنتجات إلى مجموعات لعرضها بأقسام
+        const filteredDrinks = filteredProducts.filter(p => p.code >= 1 && p.code <= 43);
+        const filteredFoods = filteredProducts.filter(p => p.code >= 100 && p.code <= 135);
+        
+        // عرض المشروبات أولاً
+        if (filteredDrinks.length > 0) {
+            // إضافة عنوان المشروبات
+            const drinksHeader = document.createElement('div');
+            drinksHeader.className = 'category-header';
+            drinksHeader.innerHTML = `
+                <h2><i class="fas fa-wine-glass-alt"></i> المشروبات (${filteredDrinks.length})</h2>
+            `;
+            elements.productsGrid.appendChild(drinksHeader);
+            
+            // إنشاء شبكة للمشروبات
+            const drinksGrid = document.createElement('div');
+            drinksGrid.className = 'products-category-grid';
+            
+            filteredDrinks.forEach(product => {
+                drinksGrid.appendChild(createProductCard(product));
+            });
+            
+            elements.productsGrid.appendChild(drinksGrid);
+        }
+        
+        // عرض المأكولات
+        if (filteredFoods.length > 0) {
+            // إضافة عنوان المأكولات
+            const foodsHeader = document.createElement('div');
+            foodsHeader.className = 'category-header';
+            foodsHeader.innerHTML = `
+                <h2><i class="fas fa-utensils"></i> المأكولات (${filteredFoods.length})</h2>
+            `;
+            elements.productsGrid.appendChild(foodsHeader);
+            
+            // إنشاء شبكة للمأكولات
+            const foodsGrid = document.createElement('div');
+            foodsGrid.className = 'products-category-grid';
+            
+            filteredFoods.forEach(product => {
+                foodsGrid.appendChild(createProductCard(product));
+            });
+            
+            elements.productsGrid.appendChild(foodsGrid);
+        }
+    }
+
+    // دالة مساعدة لإنشاء بطاقة منتج
+    function createProductCard(product) {
+        const availability = appState.availability[product.code] || {};
+        const isAvailable = availability.available !== false;
+        const availableQty = availability.available_qty || 0;
+        const currentQty = appState.selectedProducts[product.code] || 0;
+        
+        const productCard = document.createElement('div');
+        productCard.className = `product-card ${!isAvailable ? 'unavailable' : ''}`;
+        
+        // استخدام صورة افتراضية إذا لم توجد صورة
+        let imageUrl = product.image_url || `https://via.placeholder.com/250x150/1e1e1e/00bfa6?text=${encodeURIComponent(product.item)}`;
+        
+        productCard.innerHTML = `
+            <img src="${imageUrl}" alt="${product.item}" class="product-image"
+                 onerror="this.src='https://via.placeholder.com/250x150/1e1e1e/666?text=No+Image'">
+            <div class="product-info">
+                <div class="product-name">${product.item}</div>
+                <div class="product-price">${product.price} جنيه</div>
+                <div class="product-availability">
+                    ${isAvailable ? 
+                        `<span class="status status-available">متوفر: ${availableQty}</span>` : 
+                        '<span class="status status-unavailable">غير متوفر</span>'
+                    }
+                </div>
+            </div>
+            <div class="product-actions">
+                <div class="qty-controls">
+                    <button class="qty-btn" onclick="updateProductQty(${product.code}, -1)" 
+                            ${currentQty <= 0 ? 'disabled' : ''}>-</button>
+                    <span class="qty-display">${currentQty}</span>
+                    <button class="qty-btn" onclick="updateProductQty(${product.code}, 1)" 
+                            ${currentQty >= availableQty ? 'disabled' : ''}>+</button>
+                </div>
+                <button class="add-to-cart-btn" onclick="addToCart(${product.code})"
+                        ${!isAvailable || availableQty === 0 ? 'disabled' : ''}>
+                    <i class="fas fa-cart-plus"></i> إضافة
+                </button>
+            </div>
+        `;
+        
+        return productCard;
+    }
+
+    // تحديث كمية المنتج
+    window.updateProductQty = function(code, change) {
+        const currentQty = appState.selectedProducts[code] || 0;
+        const availability = appState.availability[code] || {};
+        const availableQty = availability.available_qty || 0;
+        
+        let newQty = currentQty + change;
+        newQty = Math.max(0, Math.min(newQty, availableQty));
+        
+        if (newQty !== currentQty) {
+            appState.selectedProducts[code] = newQty;
+            updateCart();
+            renderProducts();
+        }
+    };
+
+    // إضافة إلى السلة
+    window.addToCart = function(code) {
+        const currentQty = appState.selectedProducts[code] || 0;
+        if (currentQty > 0) {
+            updateProductQty(code, 0);
+            showNotification('تمت إضافة المنتج إلى السلة', 'success');
+        }
+    };
+
+    // تحديث السلة
+    function updateCart() {
+        appState.cart = [];
+        let total = 0;
+        
+        Object.entries(appState.selectedProducts).forEach(([code, qty]) => {
+            if (qty > 0) {
+                const product = appState.products.find(p => p.code == code);
+                if (product) {
+                    const itemTotal = product.price * qty;
+                    total += itemTotal;
+                    
+                    appState.cart.push({
+                        code: code,
+                        name: product.item,
+                        price: product.price,
+                        qty: qty,
+                        total: itemTotal
+                    });
+                }
+            }
+        });
+        
+        updateCartDisplay();
+        updateStats();
+    }
+
+    // عرض السلة
+    function updateCartDisplay() {
+        elements.cartItems.innerHTML = '';
+        
+        if (appState.cart.length === 0) {
+            elements.cartItems.innerHTML = '<p class="empty-cart">السلة فارغة</p>';
+            elements.cartTotal.textContent = '0.00 جنيه';
+            return;
+        }
+        
+        appState.cart.forEach(item => {
+            const cartItem = document.createElement('div');
+            cartItem.className = 'cart-item';
+            cartItem.innerHTML = `
+                <div class="cart-item-info">
+                    <div class="cart-item-name">${item.name}</div>
+                    <div class="cart-item-qty">الكمية: ${item.qty}</div>
+                </div>
+                <div class="cart-item-price">${item.total.toFixed(2)} جنيه</div>
+                <button class="cart-item-remove" onclick="removeFromCart(${item.code})">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            elements.cartItems.appendChild(cartItem);
+        });
+        
+        const total = appState.cart.reduce((sum, item) => sum + item.total, 0);
+        elements.cartTotal.textContent = total.toFixed(2) + ' جنيه';
+    }
+
+    // إزالة من السلة
+    window.removeFromCart = function(code) {
+        delete appState.selectedProducts[code];
+        updateCart();
+        renderProducts();
+    };
+
+    // إفراغ السلة
+    function clearCart() {
+        if (appState.cart.length === 0) return;
+        
+        if (confirm('هل تريد إفراغ السلة؟')) {
+            appState.selectedProducts = {};
+            updateCart();
+            renderProducts();
+            showNotification('تم إفراغ السلة', 'success');
+        }
+    };
+
+    // فلترة المنتجات
+    function filterProducts() {
+        renderProducts();
+    }
+
+    // تحميل طلبات المستخدم
+    async function loadUserOrders() {
+        try {
+            const { data } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('username', appState.username)
+                .order('id', { ascending: false });
+            
+            appState.orders = data || [];
+            elements.myOrdersCount.textContent = appState.orders.length;
+            
+        } catch (error) {
+            console.error('Error loading orders:', error);
+        }
+    }
+
+    // تحميل استهلاك المستخدم
+    async function loadUserConsumption() {
+        try {
+            const { data } = await supabase
+                .from('expenses')
+                .select('*')
+                .eq('username', appState.username)
+                .order('date', { ascending: false });
+            
+            appState.consumption = data || [];
+            
+            const total = appState.consumption.reduce((sum, item) => 
+                sum + (item.total || 0), 0);
+            elements.myTotalSpent.textContent = total.toFixed(2) + ' جنيه';
+            
+        } catch (error) {
+            console.error('Error loading consumption:', error);
+        }
+    }
+
+    // تحديث الإحصائيات
+    function updateStats() {
+        const total = appState.cart.reduce((sum, item) => sum + item.total, 0);
+        elements.cartTotal.textContent = total.toFixed(2) + ' جنيه';
+    }
+
+    // إرسال الطلب
+    async function sendOrder(orderType) {
+        const place = elements.place.value.trim();
+        const note = elements.note.value.trim();
+        
+        if (!place) {
+            showNotification('يرجى إدخال المكان', 'error');
+            return;
+        }
+        
+        if (appState.cart.length === 0) {
+            showNotification('يرجى اختيار المنتجات أولاً', 'error');
+            return;
+        }
+        
+        // التحقق من حالة النظام
+        if (!appState.systemStatus.buffet_open) {
+            showNotification('عذرًا، البوفيه مغلق حاليًا، يرجى الطلب غدًا.', 'error');
+            return;
+        }
+        
+        if (appState.systemStatus.prayer_closed) {
+            showNotification('عذرًا، عامل البوفيه ذهب للصلاة، يرجى الانتظار حتى انتهاء الصلاة.', 'error');
+            return;
+        }
+        
+        try {
+            const batchId = `${appState.username}_${Date.now()}`;
+            const nowDate = new Date().toISOString().split('T')[0];
+            const nowTime = new Date().toLocaleTimeString('ar-EG', { hour12: false });
+            
+            let totalAll = 0;
+            const productsData = [];
+            const expensesRows = [];
+            
+            // التحقق من توفر المنتجات وتحديث المخزون
+            for (const item of appState.cart) {
+                const product = appState.products.find(p => p.code == item.code);
+                if (!product) continue;
                 
-                if (error || !data) {
-                    showMessage(elements.loginMessage, 'اسم المستخدم أو كلمة المرور غير صحيحة', 'error');
-                    return;
+                const availability = appState.availability[item.code] || {};
+                const availableQty = availability.available_qty || 0;
+                
+                if (availableQty < item.qty) {
+                    showNotification(`الكمية المتاحة من '${item.name}' هي ${availableQty} فقط`, 'warning');
+                    item.qty = Math.min(item.qty, availableQty);
+                    
+                    if (item.qty <= 0) continue;
                 }
                 
-                // تسجيل الدخول الناجح
-                appState.loggedIn = true;
-                appState.username = username;
+                const totalPrice = product.price * item.qty;
+                totalAll += totalPrice;
                 
-                // حفظ في localStorage
-                localStorage.setItem('buffet_user', password);
-                localStorage.setItem('buffet_username', username);
+                productsData.push({
+                    code: item.code,
+                    item: item.name,
+                    price: product.price,
+                    qty: item.qty,
+                    total: totalPrice
+                });
                 
-                showMainScreen();
-                loadUserData();
-                showNotification('تم تسجيل الدخول بنجاح!', 'success');
+                expensesRows.push({
+                    username: appState.username,
+                    code: item.code,
+                    item: item.name,
+                    price: product.price,
+                    qty: item.qty,
+                    total: totalPrice,
+                    date: nowDate,
+                    time: nowTime,
+                    payment_type: orderType,
+                    batch_id: batchId
+                });
                 
-            } catch (error) {
-                showMessage(elements.loginMessage, 'حدث خطأ أثناء تسجيل الدخول', 'error');
-                console.error('Login error:', error);
+                // تحديث المخزون
+                const newQty = Math.max(0, availableQty - item.qty);
+                await supabase
+                    .from('availability')
+                    .update({ available_qty: newQty })
+                    .eq('code', item.code);
             }
-        }
-
-        // تسجيل الخروج
-        function handleLogout() {
-            appState.loggedIn = false;
-            appState.username = null;
+            
+            if (productsData.length === 0) {
+                showNotification('لم يتم إدخال أي منتجات صالحة', 'error');
+                return;
+            }
+            
+            // إدخال الطلب
+            await supabase
+                .from('orders')
+                .insert({
+                    username: appState.username,
+                    place: place,
+                    status: 'في الانتظار',
+                    order_type: orderType,
+                    note: note,
+                    batch_id: batchId,
+                    products: productsData,
+                    total: totalAll,
+                    date: nowDate,
+                    time: nowTime
+                });
+            
+            // إدخال المصروفات
+            await supabase
+                .from('expenses')
+                .insert(expensesRows);
+            
+            // إعادة تعيين
             appState.selectedProducts = {};
-            appState.cart = [];
+            elements.place.value = '';
+            elements.note.value = '';
             
-            localStorage.removeItem('buffet_user');
-            localStorage.removeItem('buffet_username');
-            
-            showLoginScreen();
-            showNotification('تم تسجيل الخروج بنجاح', 'success');
-        }
-
-        // تحميل بيانات المستخدم
-        async function loadUserData() {
-            elements.userName.textContent = appState.username;
+            // تحديث البيانات
             await Promise.all([
                 loadProducts(),
                 loadUserOrders(),
                 loadUserConsumption()
             ]);
-            updateCartDisplay();
-        }
-
-        // تحميل المنتجات
-        async function loadProducts() {
-            try {
-                const [productsRes, availabilityRes] = await Promise.all([
-                    supabase.from('prices').select('*'),
-                    supabase.from('availability').select('*')
-                ]);
-                
-                appState.products = productsRes.data || [];
-                appState.availability = {};
-                
-                availabilityRes.data?.forEach(item => {
-                    appState.availability[item.code] = item;
-                });
-                
-                renderProducts();
-                updateLastUpdateTime();
-                
-            } catch (error) {
-                console.error('Error loading products:', error);
-                showNotification('خطأ في تحميل المنتجات', 'error');
-            }
-        }
-
-        // عرض المنتجات
-        function renderProducts() {
-            elements.productsGrid.innerHTML = '';
-            
-            if (!appState.products.length) {
-                elements.productsGrid.innerHTML = '<div class="loading">لا توجد منتجات متاحة</div>';
-                return;
-            }
-            
-            // تصنيف المنتجات
-            const drinks = appState.products.filter(p => p.code >= 1 && p.code <= 43);
-            const foods = appState.products.filter(p => p.code >= 100 && p.code <= 135);
-            const allProducts = [...drinks, ...foods];
-            
-            // فلترة حسب البحث
-            const searchTerm = elements.productSearch.value.toLowerCase();
-            let filteredProducts = allProducts;
-            
-            if (searchTerm) {
-                filteredProducts = allProducts.filter(p => 
-                    p.item?.toLowerCase().includes(searchTerm)
-                );
-            }
-            
-            // فلترة حسب التبويب النشط
-            const activeTab = document.querySelector('.tab-btn.active');
-            if (activeTab) {
-                const category = activeTab.dataset.category;
-                if (category === 'drinks') {
-                    filteredProducts = filteredProducts.filter(p => p.code >= 1 && p.code <= 43);
-                } else if (category === 'foods') {
-                    filteredProducts = filteredProducts.filter(p => p.code >= 100 && p.code <= 135);
-                }
-            }
-            
-            if (!filteredProducts.length) {
-                elements.productsGrid.innerHTML = '<div class="loading">لم يتم العثور على منتجات</div>';
-                return;
-            }
-            
-            // تصنيف المنتجات إلى مجموعات لعرضها بأقسام
-            const filteredDrinks = filteredProducts.filter(p => p.code >= 1 && p.code <= 43);
-            const filteredFoods = filteredProducts.filter(p => p.code >= 100 && p.code <= 135);
-            
-            // عرض المشروبات أولاً
-            if (filteredDrinks.length > 0) {
-                // إضافة عنوان المشروبات
-                const drinksHeader = document.createElement('div');
-                drinksHeader.className = 'section-header';
-                drinksHeader.innerHTML = `
-                    <h2><i class="fas fa-wine-glass-alt"></i> المشروبات</h2>
-                `;
-                elements.productsGrid.appendChild(drinksHeader);
-                
-                // عرض بطاقات المشروبات
-                filteredDrinks.forEach(product => {
-                    createProductCard(product);
-                });
-            }
-            
-            // عرض المأكولات
-            if (filteredFoods.length > 0) {
-                // إضافة عنوان المأكولات
-                const foodsHeader = document.createElement('div');
-                foodsHeader.className = 'section-header';
-                foodsHeader.innerHTML = `
-                    <h2><i class="fas fa-utensils"></i> المأكولات</h2>
-                `;
-                elements.productsGrid.appendChild(foodsHeader);
-                
-                // عرض بطاقات المأكولات
-                filteredFoods.forEach(product => {
-                    createProductCard(product);
-                });
-            }
-        }
-
-        // دالة مساعدة لإنشاء بطاقة منتج
-        function createProductCard(product) {
-            const availability = appState.availability[product.code] || {};
-            const isAvailable = availability.available !== false;
-            const availableQty = availability.available_qty || 0;
-            const currentQty = appState.selectedProducts[product.code] || 0;
-            
-            const productCard = document.createElement('div');
-            productCard.className = `product-card ${!isAvailable ? 'unavailable' : ''}`;
-            
-            // استخدام صورة افتراضية إذا لم توجد صورة
-            let imageUrl = product.image_url || `https://via.placeholder.com/250x150/1e1e1e/00bfa6?text=${encodeURIComponent(product.item)}`;
-            
-            productCard.innerHTML = `
-                <img src="${imageUrl}" alt="${product.item}" class="product-image"
-                     onerror="this.src='https://via.placeholder.com/250x150/1e1e1e/666?text=No+Image'">
-                <div class="product-info">
-                    <div class="product-name">${product.item}</div>
-                    <div class="product-price">${product.price} جنيه</div>
-                    <div class="product-availability">
-                        ${isAvailable ? 
-                            `<span class="status status-available">متوفر: ${availableQty}</span>` : 
-                            '<span class="status status-unavailable">غير متوفر</span>'
-                        }
-                    </div>
-                </div>
-                <div class="product-actions">
-                    <div class="qty-controls">
-                        <button class="qty-btn" onclick="updateProductQty(${product.code}, -1)" 
-                                ${currentQty <= 0 ? 'disabled' : ''}>-</button>
-                        <span class="qty-display">${currentQty}</span>
-                        <button class="qty-btn" onclick="updateProductQty(${product.code}, 1)" 
-                                ${currentQty >= availableQty ? 'disabled' : ''}>+</button>
-                    </div>
-                    <button class="add-to-cart-btn" onclick="addToCart(${product.code})"
-                            ${!isAvailable || availableQty === 0 ? 'disabled' : ''}>
-                        <i class="fas fa-cart-plus"></i> إضافة
-                    </button>
-                </div>
-            `;
-            
-            elements.productsGrid.appendChild(productCard);
-        }
-
-        // تحديث السلة
-        function updateCart() {
-            appState.cart = [];
-            let total = 0;
-            
-            Object.entries(appState.selectedProducts).forEach(([code, qty]) => {
-                if (qty > 0) {
-                    const product = appState.products.find(p => p.code == code);
-                    if (product) {
-                        const itemTotal = product.price * qty;
-                        total += itemTotal;
-                        
-                        appState.cart.push({
-                            code: code,
-                            name: product.item,
-                            price: product.price,
-                            qty: qty,
-                            total: itemTotal
-                        });
-                    }
-                }
-            });
             
             updateCartDisplay();
-            updateStats();
+            
+            showNotification(`تم إرسال طلبك بنجاح! الإجمالي: ${totalAll.toFixed(2)} جنيه`, 'success');
+            
+        } catch (error) {
+            console.error('Error sending order:', error);
+            showNotification('حدث خطأ أثناء إرسال الطلب', 'error');
         }
+    }
 
-        // عرض السلة
-        function updateCartDisplay() {
-            elements.cartItems.innerHTML = '';
+    // التحقق من حالة النظام
+    async function checkSystemStatus() {
+        try {
+            const { data } = await supabase
+                .from('system_status')
+                .select('*')
+                .limit(1)
+                .single();
             
-            if (appState.cart.length === 0) {
-                elements.cartItems.innerHTML = '<p class="empty-cart">السلة فارغة</p>';
-                elements.cartTotal.textContent = '0.00 جنيه';
-                return;
-            }
-            
-            appState.cart.forEach(item => {
-                const cartItem = document.createElement('div');
-                cartItem.className = 'cart-item';
-                cartItem.innerHTML = `
-                    <div class="cart-item-info">
-                        <div class="cart-item-name">${item.name}</div>
-                        <div class="cart-item-qty">الكمية: ${item.qty}</div>
-                    </div>
-                    <div class="cart-item-price">${item.total.toFixed(2)} جنيه</div>
-                    <button class="cart-item-remove" onclick="removeFromCart(${item.code})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-                elements.cartItems.appendChild(cartItem);
-            });
-            
-            const total = appState.cart.reduce((sum, item) => sum + item.total, 0);
-            elements.cartTotal.textContent = total.toFixed(2) + ' جنيه';
-        }
-
-        // إزالة من السلة
-        window.removeFromCart = function(code) {
-            delete appState.selectedProducts[code];
-            updateCart();
-            renderProducts();
-        };
-
-        // إفراغ السلة
-        function clearCart() {
-            if (appState.cart.length === 0) return;
-            
-            if (confirm('هل تريد إفراغ السلة؟')) {
-                appState.selectedProducts = {};
-                updateCart();
-                renderProducts();
-                showNotification('تم إفراغ السلة', 'success');
-            }
-        };
-
-        // فلترة المنتجات
-        function filterProducts() {
-            renderProducts();
-        }
-
-        // تحميل طلبات المستخدم
-        async function loadUserOrders() {
-            try {
-                const { data } = await supabase
-                    .from('orders')
-                    .select('*')
-                    .eq('username', appState.username)
-                    .order('id', { ascending: false });
+            if (data) {
+                appState.systemStatus = data;
                 
-                appState.orders = data || [];
-                elements.myOrdersCount.textContent = appState.orders.length;
-                
-            } catch (error) {
-                console.error('Error loading orders:', error);
-            }
-        }
-
-        // تحميل استهلاك المستخدم
-        async function loadUserConsumption() {
-            try {
-                const { data } = await supabase
-                    .from('expenses')
-                    .select('*')
-                    .eq('username', appState.username)
-                    .order('date', { ascending: false });
-                
-                appState.consumption = data || [];
-                
-                const total = appState.consumption.reduce((sum, item) => 
-                    sum + (item.total || 0), 0);
-                elements.myTotalSpent.textContent = total.toFixed(2) + ' جنيه';
-                
-            } catch (error) {
-                console.error('Error loading consumption:', error);
-            }
-        }
-
-        // تحديث الإحصائيات
-        function updateStats() {
-            const total = appState.cart.reduce((sum, item) => sum + item.total, 0);
-            elements.cartTotal.textContent = total.toFixed(2) + ' جنيه';
-        }
-
-        // إرسال الطلب
-        async function sendOrder(orderType) {
-            const place = elements.place.value.trim();
-            const note = elements.note.value.trim();
-            
-            if (!place) {
-                showNotification('يرجى إدخال المكان', 'error');
-                return;
-            }
-            
-            if (appState.cart.length === 0) {
-                showNotification('يرجى اختيار المنتجات أولاً', 'error');
-                return;
-            }
-            
-            // التحقق من حالة النظام
-            if (!appState.systemStatus.buffet_open) {
-                showNotification('عذرًا، البوفيه مغلق حاليًا، يرجى الطلب غدًا.', 'error');
-                return;
-            }
-            
-            if (appState.systemStatus.prayer_closed) {
-                showNotification('عذرًا، عامل البوفيه ذهب للصلاة، يرجى الانتظار حتى انتهاء الصلاة.', 'error');
-                return;
-            }
-            
-            try {
-                const batchId = `${appState.username}_${Date.now()}`;
-                const nowDate = new Date().toISOString().split('T')[0];
-                const nowTime = new Date().toLocaleTimeString('ar-EG', { hour12: false });
-                
-                let totalAll = 0;
-                const productsData = [];
-                const expensesRows = [];
-                
-                // التحقق من توفر المنتجات وتحديث المخزون
-                for (const item of appState.cart) {
-                    const product = appState.products.find(p => p.code == item.code);
-                    if (!product) continue;
-                    
-                    const availability = appState.availability[item.code] || {};
-                    const availableQty = availability.available_qty || 0;
-                    
-                    if (availableQty < item.qty) {
-                        showNotification(`الكمية المتاحة من '${item.name}' هي ${availableQty} فقط`, 'warning');
-                        item.qty = Math.min(item.qty, availableQty);
-                        
-                        if (item.qty <= 0) continue;
-                    }
-                    
-                    const totalPrice = product.price * item.qty;
-                    totalAll += totalPrice;
-                    
-                    productsData.push({
-                        code: item.code,
-                        item: item.name,
-                        price: product.price,
-                        qty: item.qty,
-                        total: totalPrice
-                    });
-                    
-                    expensesRows.push({
-                        username: appState.username,
-                        code: item.code,
-                        item: item.name,
-                        price: product.price,
-                        qty: item.qty,
-                        total: totalPrice,
-                        date: nowDate,
-                        time: nowTime,
-                        payment_type: orderType,
-                        batch_id: batchId
-                    });
-                    
-                    // تحديث المخزون
-                    const newQty = Math.max(0, availableQty - item.qty);
-                    await supabase
-                        .from('availability')
-                        .update({ available_qty: newQty })
-                        .eq('code', item.code);
+                let statusText = '';
+                if (!data.buffet_open) {
+                    statusText = '⛔ البوفيه مغلق';
+                    elements.buffetStatus.style.color = '#F44336';
+                } else if (data.prayer_closed) {
+                    statusText = '⏸️ متوقف للصلاة';
+                    elements.buffetStatus.style.color = '#FF9800';
+                } else {
+                    statusText = '✅ البوفيه مفتوح';
+                    elements.buffetStatus.style.color = '#4CAF50';
                 }
                 
-                if (productsData.length === 0) {
-                    showNotification('لم يتم إدخال أي منتجات صالحة', 'error');
-                    return;
-                }
-                
-                // إدخال الطلب
-                await supabase
-                    .from('orders')
-                    .insert({
-                        username: appState.username,
-                        place: place,
-                        status: 'في الانتظار',
-                        order_type: orderType,
-                        note: note,
-                        batch_id: batchId,
-                        products: productsData,
-                        total: totalAll,
-                        date: nowDate,
-                        time: nowTime
-                    });
-                
-                // إدخال المصروفات
-                await supabase
-                    .from('expenses')
-                    .insert(expensesRows);
-                
-                // إعادة تعيين
-                appState.selectedProducts = {};
-                elements.place.value = '';
-                elements.note.value = '';
-                
-                // تحديث البيانات
+                elements.buffetStatus.textContent = statusText;
+            }
+        } catch (error) {
+            console.error('Error checking system status:', error);
+        }
+    }
+
+    // تحديث وقت آخر تحديث
+    function updateLastUpdateTime() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('ar-EG', { hour12: false });
+        elements.lastUpdate.textContent = `آخر تحديث: ${timeString}`;
+    }
+
+    // التحديث التلقائي
+    function setupAutoRefresh() {
+        // إيقاف أي فاصل زمني سابق
+        if (appState.autoRefreshInterval) {
+            clearInterval(appState.autoRefreshInterval);
+        }
+        
+        // تحديث كل 30 ثانية
+        appState.autoRefreshInterval = setInterval(async () => {
+            if (appState.loggedIn) {
                 await Promise.all([
                     loadProducts(),
                     loadUserOrders(),
-                    loadUserConsumption()
+                    loadUserConsumption(),
+                    checkSystemStatus()
                 ]);
                 
-                updateCartDisplay();
-                
-                showNotification(`تم إرسال طلبك بنجاح! الإجمالي: ${totalAll.toFixed(2)} جنيه`, 'success');
-                
-            } catch (error) {
-                console.error('Error sending order:', error);
-                showNotification('حدث خطأ أثناء إرسال الطلب', 'error');
-            }
-        }
-
-        // التحقق من حالة النظام
-        async function checkSystemStatus() {
-            try {
-                const { data } = await supabase
-                    .from('system_status')
-                    .select('*')
-                    .limit(1)
-                    .single();
-                
-                if (data) {
-                    appState.systemStatus = data;
-                    
-                    let statusText = '';
-                    if (!data.buffet_open) {
-                        statusText = '⛔ البوفيه مغلق';
-                        elements.buffetStatus.style.color = '#F44336';
-                    } else if (data.prayer_closed) {
-                        statusText = '⏸️ متوقف للصلاة';
-                        elements.buffetStatus.style.color = '#FF9800';
-                    } else {
-                        statusText = '✅ البوفيه مفتوح';
-                        elements.buffetStatus.style.color = '#4CAF50';
-                    }
-                    
-                    elements.buffetStatus.textContent = statusText;
-                }
-            } catch (error) {
-                console.error('Error checking system status:', error);
-            }
-        }
-
-        // تحديث وقت آخر تحديث
-        function updateLastUpdateTime() {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('ar-EG', { hour12: false });
-            elements.lastUpdate.textContent = `آخر تحديث: ${timeString}`;
-        }
-
-        // التحديث التلقائي
-        function setupAutoRefresh() {
-            // تحديث كل 30 ثانية
-            setInterval(async () => {
-                if (appState.loggedIn) {
-                    await Promise.all([
-                        loadProducts(),
-                        loadUserOrders(),
-                        loadUserConsumption(),
-                        checkSystemStatus()
-                    ]);
-                    
-                    updateLastUpdateTime();
-                    showNotification('تم التحديث التلقائي', 'info', 2000);
-                }
-            }, 10000); // 10 ثانية
-            
-            // تحديث وقت النشاط
-            setInterval(() => {
                 updateLastUpdateTime();
-            }, 30000); // 30 ثانية
+                console.log('تم التحديث التلقائي في', new Date().toLocaleTimeString());
+            }
+        }, 30000); // 30 ثانية
+    }
+
+    // عرض نافذة الطلبات - محسّن
+    function showOrdersModal() {
+        elements.ordersTableBody.innerHTML = '';
+        
+        if (appState.orders.length === 0) {
+            elements.ordersTableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="empty">
+                        <i class="fas fa-clipboard-list" style="font-size: 48px; color: #666; margin-bottom: 15px;"></i>
+                        <p>لا توجد طلبات سابقة</p>
+                    </td>
+                </tr>
+            `;
+        } else {
+            appState.orders.forEach(order => {
+                const productsText = order.products?.map(p => 
+                    `${p.item} (${p.qty})`
+                ).join('<br>') || '';
+                
+                // حساب المدة
+                let durationText = '';
+                if (order.time_received && order.time_delivered) {
+                    try {
+                        const [trHours, trMinutes] = order.time_received.split(':').map(Number);
+                        const [tdHours, tdMinutes] = order.time_delivered.split(':').map(Number);
+                        
+                        const trDate = new Date();
+                        trDate.setHours(trHours, trMinutes, 0, 0);
+                        
+                        const tdDate = new Date();
+                        tdDate.setHours(tdHours, tdMinutes, 0, 0);
+                        
+                        const durationMs = tdDate - trDate;
+                        const durationMinutes = Math.floor(durationMs / (1000 * 60));
+                        
+                        if (durationMinutes > 0) {
+                            durationText = `${durationMinutes} دقيقة`;
+                        }
+                    } catch (e) {
+                        console.error('Error calculating duration:', e);
+                    }
+                }
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${order.id}</td>
+                    <td>
+                        <strong>${order.date}</strong><br>
+                        <small class="text-muted">${order.time}</small>
+                    </td>
+                    <td>${productsText}</td>
+                    <td>
+                        <strong style="color: var(--primary-color);">${order.total.toFixed(2)}</strong> جنيه
+                    </td>
+                    <td>
+                        <span class="status ${getStatusClass(order.status)}">
+                            ${order.status}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="${order.order_type === 'كاش' ? 'status status-pending' : 'status status-available'}">
+                            ${order.order_type}
+                        </span>
+                        ${durationText ? `<br><small class="text-muted">(${durationText})</small>` : ''}
+                    </td>
+                `;
+                elements.ordersTableBody.appendChild(row);
+            });
         }
         
-        // استدعاء الدالة عند تسجيل الدخول
-        function showMainScreen() {
-            hideAllScreens();
-            elements.mainScreen.classList.remove('hidden');
-            setupAutoRefresh();
+        // تحديث ترويسة النافذة بالعدد
+        const modalHeader = elements.ordersModal.querySelector('.modal-header h2');
+        if (modalHeader) {
+            modalHeader.innerHTML = `<i class="fas fa-clipboard-list"></i> طلباتي السابقة (${appState.orders.length})`;
         }
+        
+        elements.ordersModal.classList.remove('hidden');
+    }
 
-        // عرض نافذة الطلبات
-        function showOrdersModal() {
-            elements.ordersTableBody.innerHTML = '';
+    // عرض نافذة الاستهلاك - محسّن
+    function showConsumptionModal() {
+        elements.consumptionTableBody.innerHTML = '';
+        
+        if (appState.consumption.length === 0) {
+            elements.consumptionTableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="empty">
+                        <i class="fas fa-chart-line" style="font-size: 48px; color: #666; margin-bottom: 15px;"></i>
+                        <p>لا توجد بيانات استهلاك</p>
+                    </td>
+                </tr>
+            `;
+        } else {
+            let totalAll = 0;
+            let totalNormal = 0;
+            let totalCash = 0;
             
-            if (appState.orders.length === 0) {
-                elements.ordersTableBody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="empty">
-                            <i class="fas fa-clipboard-list" style="font-size: 48px; color: #666; margin-bottom: 15px;"></i>
-                            <p>لا توجد طلبات سابقة</p>
-                        </td>
-                    </tr>
+            // تجميع البيانات حسب التاريخ
+            const groupedByDate = {};
+            
+            appState.consumption.forEach(item => {
+                const date = item.date;
+                if (!groupedByDate[date]) {
+                    groupedByDate[date] = [];
+                }
+                groupedByDate[date].push(item);
+                
+                const total = item.total || 0;
+                totalAll += total;
+                
+                if (item.payment_type === 'كاش') {
+                    totalCash += total;
+                } else {
+                    totalNormal += total;
+                }
+            });
+            
+            // عرض البيانات مجمعة حسب التاريخ
+            Object.keys(groupedByDate).sort().reverse().forEach(date => {
+                const dateItems = groupedByDate[date];
+                let dateTotal = 0;
+                
+                // إضافة صف التاريخ كمجموعة
+                const dateHeader = document.createElement('tr');
+                dateHeader.className = 'date-group-header';
+                dateHeader.innerHTML = `
+                    <td colspan="6" style="background: rgba(0, 191, 166, 0.1); font-weight: bold; padding: 10px;">
+                        <i class="fas fa-calendar-day"></i> ${date}
+                    </td>
                 `;
-            } else {
-                appState.orders.forEach(order => {
-                    const productsText = order.products?.map(p => 
-                        `${p.item} (${p.qty})`
-                    ).join('<br>') || '';
-                    
-                    // حساب المدة
-                    let durationText = '';
-                    if (order.time_received && order.time_delivered) {
-                        try {
-                            const [trHours, trMinutes] = order.time_received.split(':').map(Number);
-                            const [tdHours, tdMinutes] = order.time_delivered.split(':').map(Number);
-                            
-                            const trDate = new Date();
-                            trDate.setHours(trHours, trMinutes, 0, 0);
-                            
-                            const tdDate = new Date();
-                            tdDate.setHours(tdHours, tdMinutes, 0, 0);
-                            
-                            const durationMs = tdDate - trDate;
-                            const durationMinutes = Math.floor(durationMs / (1000 * 60));
-                            
-                            if (durationMinutes > 0) {
-                                durationText = `${durationMinutes} دقيقة`;
-                            }
-                        } catch (e) {
-                            console.error('Error calculating duration:', e);
-                        }
-                    }
+                elements.consumptionTableBody.appendChild(dateHeader);
+                
+                // عرض العناصر في هذا التاريخ
+                dateItems.forEach(item => {
+                    const total = item.total || 0;
+                    dateTotal += total;
                     
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${order.id}</td>
+                        <td>${item.time}</td>
                         <td>
-                            <strong>${order.date}</strong><br>
-                            <small class="text-muted">${order.time}</small>
+                            <strong>${item.item}</strong><br>
+                            <small class="text-muted">كود: ${item.code}</small>
                         </td>
-                        <td>${productsText}</td>
+                        <td>${item.qty}</td>
+                        <td>${item.price} جنيه</td>
                         <td>
-                            <strong style="color: var(--primary-color);">${order.total.toFixed(2)}</strong> جنيه
+                            <strong style="color: var(--primary-color);">${total.toFixed(2)}</strong> جنيه
                         </td>
                         <td>
-                            <span class="status ${getStatusClass(order.status)}">
-                                ${order.status}
+                            <span class="${item.payment_type === 'كاش' ? 'status status-pending' : 'status status-available'}">
+                                ${item.payment_type}
                             </span>
-                        </td>
-                        <td>
-                            <span class="${order.order_type === 'كاش' ? 'status status-pending' : 'status status-available'}">
-                                ${order.order_type}
-                            </span>
-                            ${durationText ? `<br><small class="text-muted">(${durationText})</small>` : ''}
                         </td>
                     `;
-                    elements.ordersTableBody.appendChild(row);
+                    elements.consumptionTableBody.appendChild(row);
                 });
-            }
-            
-            // تحديث ترويسة النافذة بالعدد
-            document.querySelector('#ordersModal .modal-header h2').innerHTML = 
-                `<i class="fas fa-clipboard-list"></i> طلباتي السابقة (${appState.orders.length})`;
-            
-            elements.ordersModal.classList.remove('hidden');
-        }
-        // عرض نافذة الاستهلاك
-        function showConsumptionModal() {
-            elements.consumptionTableBody.innerHTML = '';
-            
-            if (appState.consumption.length === 0) {
-                elements.consumptionTableBody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="empty">
-                            <i class="fas fa-chart-line" style="font-size: 48px; color: #666; margin-bottom: 15px;"></i>
-                            <p>لا توجد بيانات استهلاك</p>
-                        </td>
-                    </tr>
+                
+                // إضافة صف المجموع اليومي
+                const dateTotalRow = document.createElement('tr');
+                dateTotalRow.className = 'date-total-row';
+                dateTotalRow.innerHTML = `
+                    <td colspan="4" style="text-align: left; font-weight: bold; padding: 8px 15px;">
+                        المجموع اليومي:
+                    </td>
+                    <td colspan="2" style="font-weight: bold; color: var(--warning-color); padding: 8px 15px;">
+                        ${dateTotal.toFixed(2)} جنيه
+                    </td>
                 `;
-            } else {
-                let totalAll = 0;
-                let totalNormal = 0;
-                let totalCash = 0;
-                
-                // تجميع البيانات حسب التاريخ
-                const groupedByDate = {};
-                
-                appState.consumption.forEach(item => {
-                    const date = item.date;
-                    if (!groupedByDate[date]) {
-                        groupedByDate[date] = [];
-                    }
-                    groupedByDate[date].push(item);
-                    
-                    const total = item.total || 0;
-                    totalAll += total;
-                    
-                    if (item.payment_type === 'كاش') {
-                        totalCash += total;
-                    } else {
-                        totalNormal += total;
-                    }
-                });
-                
-                // عرض البيانات مجمعة حسب التاريخ
-                Object.keys(groupedByDate).sort().reverse().forEach(date => {
-                    const dateItems = groupedByDate[date];
-                    let dateTotal = 0;
-                    
-                    // إضافة صف التاريخ كمجموعة
-                    const dateHeader = document.createElement('tr');
-                    dateHeader.className = 'date-group-header';
-                    dateHeader.innerHTML = `
-                        <td colspan="6" style="background: rgba(0, 191, 166, 0.1); font-weight: bold; padding: 10px;">
-                            <i class="fas fa-calendar-day"></i> ${date}
-                        </td>
-                    `;
-                    elements.consumptionTableBody.appendChild(dateHeader);
-                    
-                    // عرض العناصر في هذا التاريخ
-                    dateItems.forEach(item => {
-                        const total = item.total || 0;
-                        dateTotal += total;
-                        
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${item.time}</td>
-                            <td>
-                                <strong>${item.item}</strong><br>
-                                <small class="text-muted">كود: ${item.code}</small>
-                            </td>
-                            <td>${item.qty}</td>
-                            <td>${item.price} جنيه</td>
-                            <td>
-                                <strong style="color: var(--primary-color);">${total.toFixed(2)}</strong> جنيه
-                            </td>
-                            <td>
-                                <span class="${item.payment_type === 'كاش' ? 'status status-pending' : 'status status-available'}">
-                                    ${item.payment_type}
-                                </span>
-                            </td>
-                        `;
-                        elements.consumptionTableBody.appendChild(row);
-                    });
-                    
-                    // إضافة صف المجموع اليومي
-                    const dateTotalRow = document.createElement('tr');
-                    dateTotalRow.className = 'date-total-row';
-                    dateTotalRow.innerHTML = `
-                        <td colspan="4" style="text-align: left; font-weight: bold; padding: 8px 15px;">
-                            المجموع اليومي:
-                        </td>
-                        <td colspan="2" style="font-weight: bold; color: var(--warning-color); padding: 8px 15px;">
-                            ${dateTotal.toFixed(2)} جنيه
-                        </td>
-                    `;
-                    elements.consumptionTableBody.appendChild(dateTotalRow);
-                });
-                
-                // تحديث الإجماليات
-                document.getElementById('totalAll').textContent = totalAll.toFixed(2) + ' جنيه';
-                document.getElementById('totalNormal').textContent = totalNormal.toFixed(2) + ' جنيه';
-                document.getElementById('totalCash').textContent = totalCash.toFixed(2) + ' جنيه';
-            }
-            
-            // تحديث ترويسة النافذة بالعدد
-            const uniqueDates = [...new Set(appState.consumption.map(c => c.date))].length;
-            document.querySelector('#consumptionModal .modal-header h2').innerHTML = 
-                `<i class="fas fa-chart-line"></i> تفاصيل الاستهلاك (${uniqueDates} يوم)`;
-            
-            elements.consumptionModal.classList.remove('hidden');
-        }
-
-        // عرض نافذة تغيير كلمة المرور
-        function showChangePasswordModal() {
-            elements.changeUsername.value = '';
-            elements.oldPassword.value = '';
-            elements.newPassword.value = '';
-            elements.confirmPassword.value = '';
-            elements.changePasswordMessage.textContent = '';
-            
-            elements.changePasswordModal.classList.remove('hidden');
-        }
-
-        // تغيير كلمة المرور
-        async function handleChangePassword() {
-            const username = elements.changeUsername.value.trim();
-            const oldPassword = elements.oldPassword.value.trim();
-            const newPassword = elements.newPassword.value.trim();
-            const confirmPassword = elements.confirmPassword.value.trim();
-            
-            if (!username || !oldPassword || !newPassword || !confirmPassword) {
-                showMessage(elements.changePasswordMessage, 'يرجى ملء جميع الحقول', 'error');
-                return;
-            }
-            
-            if (!newPassword.match(/^\d{4}$/)) {
-                showMessage(elements.changePasswordMessage, 'كلمة المرور الجديدة يجب أن تكون 4 أرقام فقط', 'error');
-                return;
-            }
-            
-            if (newPassword !== confirmPassword) {
-                showMessage(elements.changePasswordMessage, 'كلمة المرور الجديدة غير متطابقة', 'error');
-                return;
-            }
-            
-            try {
-                // التحقق من كلمة المرور الحالية
-                const { data, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('username', username)
-                    .eq('password', oldPassword)
-                    .single();
-                
-                if (error || !data) {
-                    showMessage(elements.changePasswordMessage, 'اسم المستخدم أو كلمة المرور الحالية غير صحيحة', 'error');
-                    return;
-                }
-                
-                // تحديث كلمة المرور
-                const { error: updateError } = await supabase
-                    .from('users')
-                    .update({ password: newPassword })
-                    .eq('username', username);
-                
-                if (updateError) {
-                    showMessage(elements.changePasswordMessage, 'حدث خطأ أثناء تغيير كلمة المرور', 'error');
-                    return;
-                }
-                
-                showMessage(elements.changePasswordMessage, 'تم تغيير كلمة المرور بنجاح ✅', 'success');
-                
-                // إغلاق النافذة بعد ثانيتين
-                setTimeout(() => {
-                    elements.changePasswordModal.classList.add('hidden');
-                }, 2000);
-                
-            } catch (error) {
-                console.error('Change password error:', error);
-                showMessage(elements.changePasswordMessage, 'حدث خطأ غير متوقع', 'error');
-            }
-        }
-
-        // عرض شاشة تسجيل الدخول
-        function showLoginScreen() {
-            hideAllScreens();
-            elements.loginScreen.classList.remove('hidden');
-        }
-
-        // عرض الشاشة الرئيسية
-        function showMainScreen() {
-            hideAllScreens();
-            elements.mainScreen.classList.remove('hidden');
-        }
-
-        // إخفاء جميع الشاشات
-        function hideAllScreens() {
-            elements.loginScreen.classList.add('hidden');
-            elements.mainScreen.classList.add('hidden');
-        }
-
-        // وظائف المساعدة
-        function getStatusClass(status) {
-            if (!status) return '';
-            
-            switch(status.toLowerCase()) {
-                case 'تم التسليم': return 'status-delivered';
-                case 'في الانتظار': return 'status-pending';
-                case 'تم الاستلام': return 'status-received';
-                case 'جاري التجهيز': return 'status-preparing';
-                case 'ملغي': return 'status-cancelled';
-                default: return '';
-            }
-        }
-
-        function showMessage(element, text, type) {
-            element.textContent = text;
-            element.className = `message ${type}`;
-            element.style.display = 'block';
-        }
-
-        function showNotification(text, type = 'info') {
-            const notificationArea = document.getElementById('notificationArea');
-            
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.innerHTML = `
-                <div class="notification-content">${text}</div>
-                <button class="notification-close">&times;</button>
-            `;
-            
-            // إزالة الإشعار القديم إذا كان هناك أكثر من 3
-            while (notificationArea.children.length >= 3) {
-                notificationArea.removeChild(notificationArea.firstChild);
-            }
-            
-            notificationArea.appendChild(notification);
-            
-            // إضافة مستمع حدث لإغلاق الإشعار
-            notification.querySelector('.notification-close').addEventListener('click', () => {
-                notification.remove();
+                elements.consumptionTableBody.appendChild(dateTotalRow);
             });
             
-            // إزالة الإشعار بعد 5 ثوانٍ
-            setTimeout(() => {
-                if (notification.parentElement) {
-                    notification.remove();
-                }
-            }, 5000);
+            // تحديث الإجماليات
+            document.getElementById('totalAll').textContent = totalAll.toFixed(2) + ' جنيه';
+            document.getElementById('totalNormal').textContent = totalNormal.toFixed(2) + ' جنيه';
+            document.getElementById('totalCash').textContent = totalCash.toFixed(2) + ' جنيه';
         }
+        
+        // تحديث ترويسة النافذة بالعدد
+        const uniqueDates = [...new Set(appState.consumption.map(c => c.date))].length;
+        const modalHeader = elements.consumptionModal.querySelector('.modal-header h2');
+        if (modalHeader) {
+            modalHeader.innerHTML = `<i class="fas fa-chart-line"></i> تفاصيل الاستهلاك (${uniqueDates} يوم)`;
+        }
+        
+        elements.consumptionModal.classList.remove('hidden');
+    }
 
-        // تعريف الدوال على window للوصول من HTML
-        window.updateProductQty = updateProductQty;
-        window.addToCart = addToCart;
-        window.removeFromCart = removeFromCart;
+    // عرض نافذة تغيير كلمة المرور
+    function showChangePasswordModal() {
+        elements.changeUsername.value = '';
+        elements.oldPassword.value = '';
+        elements.newPassword.value = '';
+        elements.confirmPassword.value = '';
+        elements.changePasswordMessage.textContent = '';
+        
+        elements.changePasswordModal.classList.remove('hidden');
+    }
 
-        // تهيئة التطبيق عند تحميل الصفحة
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeApp();
-            setupEventListeners();
-            checkSystemStatus();
+    // تغيير كلمة المرور
+    async function handleChangePassword() {
+        const username = elements.changeUsername.value.trim();
+        const oldPassword = elements.oldPassword.value.trim();
+        const newPassword = elements.newPassword.value.trim();
+        const confirmPassword = elements.confirmPassword.value.trim();
+        
+        if (!username || !oldPassword || !newPassword || !confirmPassword) {
+            showMessage(elements.changePasswordMessage, 'يرجى ملء جميع الحقول', 'error');
+            return;
+        }
+        
+        if (!newPassword.match(/^\d{4}$/)) {
+            showMessage(elements.changePasswordMessage, 'كلمة المرور الجديدة يجب أن تكون 4 أرقام فقط', 'error');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            showMessage(elements.changePasswordMessage, 'كلمة المرور الجديدة غير متطابقة', 'error');
+            return;
+        }
+        
+        try {
+            // التحقق من كلمة المرور الحالية
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('username', username)
+                .eq('password', oldPassword)
+                .single();
             
-            // تحديث تلقائي كل 30 ثانية للتطبيق الرئيسي
-            setInterval(() => {
-                if (appState.loggedIn) {
-                    loadProducts();
-                    checkSystemStatus();
-                    updateLastUpdateTime();
-                }
-            }, 30000);
-            
-            // التحقق من تسجيل الدخول السابق
-            const savedUser = localStorage.getItem('buffet_username');
-            const savedPass = localStorage.getItem('buffet_user');
-            
-            if (savedUser && savedPass) {
-                elements.usernameInput.value = savedUser;
-                elements.passwordInput.value = savedPass;
-                // يمكن تفعيل السطر التالي للتسجيل التلقائي
-                // handleLogin();
+            if (error || !data) {
+                showMessage(elements.changePasswordMessage, 'اسم المستخدم أو كلمة المرور الحالية غير صحيحة', 'error');
+                return;
             }
             
-            console.log('نظام البوفيه الذكي جاهز للاستخدام');
+            // تحديث كلمة المرور
+            const { error: updateError } = await supabase
+                .from('users')
+                .update({ password: newPassword })
+                .eq('username', username);
+            
+            if (updateError) {
+                showMessage(elements.changePasswordMessage, 'حدث خطأ أثناء تغيير كلمة المرور', 'error');
+                return;
+            }
+            
+            showMessage(elements.changePasswordMessage, 'تم تغيير كلمة المرور بنجاح ✅', 'success');
+            
+            // إغلاق النافذة بعد ثانيتين
+            setTimeout(() => {
+                elements.changePasswordModal.classList.add('hidden');
+            }, 2000);
+            
+        } catch (error) {
+            console.error('Change password error:', error);
+            showMessage(elements.changePasswordMessage, 'حدث خطأ غير متوقع', 'error');
+        }
+    }
+
+    // عرض شاشة تسجيل الدخول
+    function showLoginScreen() {
+        hideAllScreens();
+        elements.loginScreen.classList.remove('hidden');
+    }
+
+    // عرض الشاشة الرئيسية
+    function showMainScreen() {
+        hideAllScreens();
+        elements.mainScreen.classList.remove('hidden');
+    }
+
+    // إخفاء جميع الشاشات
+    function hideAllScreens() {
+        elements.loginScreen.classList.add('hidden');
+        elements.mainScreen.classList.add('hidden');
+    }
+
+    // وظائف المساعدة
+    function getStatusClass(status) {
+        if (!status) return '';
+        
+        switch(status.toLowerCase()) {
+            case 'تم التسليم': return 'status-delivered';
+            case 'في الانتظار': return 'status-pending';
+            case 'تم الاستلام': return 'status-received';
+            case 'جاري التجهيز': return 'status-preparing';
+            case 'ملغي': return 'status-cancelled';
+            default: return '';
+        }
+    }
+
+    function showMessage(element, text, type) {
+        element.textContent = text;
+        element.className = `message ${type}`;
+        element.style.display = 'block';
+    }
+
+    function showNotification(text, type = 'info', duration = 5000) {
+        const notificationArea = document.getElementById('notificationArea');
+        
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <div class="notification-content">${text}</div>
+            <button class="notification-close">&times;</button>
+        `;
+        
+        // إزالة الإشعار القديم إذا كان هناك أكثر من 3
+        while (notificationArea.children.length >= 3) {
+            notificationArea.removeChild(notificationArea.firstChild);
+        }
+        
+        notificationArea.appendChild(notification);
+        
+        // إضافة مستمع حدث لإغلاق الإشعار
+        notification.querySelector('.notification-close').addEventListener('click', () => {
+            notification.remove();
         });
-    </script>
+        
+        // إزالة الإشعار بعد المدة المحددة
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, duration);
+    }
+
+    // تعريف الدوال على window للوصول من HTML
+    window.updateProductQty = updateProductQty;
+    window.addToCart = addToCart;
+    window.removeFromCart = removeFromCart;
+
+    // تهيئة التطبيق عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', initializeApp);
+</script>
 </body>
 </html>
+
 
 
