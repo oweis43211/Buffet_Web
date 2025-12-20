@@ -1283,11 +1283,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    // تكوين Supabase
+    // تكوين Supabase - تعريف مرة واحدة فقط
     const SUPABASE_URL = "https://oshbvczwsxpimyneudeg.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zaGJ2Y3p3c3hwaW15bmV1ZGVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3MTA5MjQsImV4cCI6MjA3NDI4NjkyNH0.tzNQ_DCrZLSO2H-EgmtElOlG05__FFmpqU0vJ5ay7VU";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zaGJ2Y3p3c3hwaW15bmV1ZGVnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODcxMDkyNCwiZXhwIjoyMDc0Mjg2OTI0fQ.A4QiXm-uC6q8RWV0w67zXNEXnsqQIwJdS7f-efG1vQg";
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // إنشاء عميل Supabase مرة واحدة فقط
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 
     // حالة التطبيق الرئيسي
     let appState = {
@@ -1436,15 +1438,6 @@
                 }
             });
         });
-
-        // زر تحديث المنتجات
-        const refreshBtn = document.getElementById('refreshProductsBtn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', async () => {
-                await loadProducts();
-                showNotification('تم تحديث المنتجات', 'success');
-            });
-        }
     }
 
     // تسجيل الدخول
@@ -1463,7 +1456,7 @@
         }
         
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('users')
                 .select('*')
                 .eq('username', username)
@@ -1529,8 +1522,8 @@
     async function loadProducts() {
         try {
             const [productsRes, availabilityRes] = await Promise.all([
-                supabase.from('prices').select('*'),
-                supabase.from('availability').select('*')
+                supabaseClient.from('prices').select('*'),
+                supabaseClient.from('availability').select('*')
             ]);
             
             appState.products = productsRes.data || [];
@@ -1549,8 +1542,7 @@
         }
     }
 
-    // عرض المنتجات - محسّن
-   // عرض المنتجات
+    // عرض المنتجات
     function renderProducts() {
         elements.productsGrid.innerHTML = '';
         
@@ -1637,7 +1629,7 @@
     }
 
     // تحديث كمية المنتج
-    window.updateProductQty = function(code, change) {
+    function updateProductQty(code, change) {
         const currentQty = appState.selectedProducts[code] || 0;
         const availability = appState.availability[code] || {};
         const availableQty = availability.available_qty || 0;
@@ -1650,16 +1642,16 @@
             updateCart();
             renderProducts();
         }
-    };
+    }
 
     // إضافة إلى السلة
-    window.addToCart = function(code) {
+    function addToCart(code) {
         const currentQty = appState.selectedProducts[code] || 0;
         if (currentQty > 0) {
             updateProductQty(code, 0);
             showNotification('تمت إضافة المنتج إلى السلة', 'success');
         }
-    };
+    }
 
     // تحديث السلة
     function updateCart() {
@@ -1687,103 +1679,6 @@
         updateCartDisplay();
         updateStats();
     }
-
-
-// دالة مساعدة لإنشاء بطاقة منتج
-function createProductCard(product) {
-    const availability = appState.availability[product.code] || {};
-    const isAvailable = availability.available !== false;
-    const availableQty = availability.available_qty || 0;
-    const currentQty = appState.selectedProducts[product.code] || 0;
-    
-    const productCard = document.createElement('div');
-    productCard.className = `product-card ${!isAvailable ? 'unavailable' : ''}`;
-    
-    // استخدام صورة افتراضية إذا لم توجد صورة
-    let imageUrl = product.image_url || `https://via.placeholder.com/250x150/1e1e1e/00bfa6?text=${encodeURIComponent(product.item)}`;
-    
-    productCard.innerHTML = `
-        <img src="${imageUrl}" alt="${product.item}" class="product-image"
-             onerror="this.src='https://via.placeholder.com/250x150/1e1e1e/666?text=No+Image'">
-        <div class="product-info">
-            <div class="product-name">${product.item}</div>
-            <div class="product-price">${product.price} جنيه</div>
-            <div class="product-availability">
-                ${isAvailable ? 
-                    `<span class="status status-available">متوفر: ${availableQty}</span>` : 
-                    '<span class="status status-unavailable">غير متوفر</span>'
-                }
-            </div>
-        </div>
-        <div class="product-actions">
-            <div class="qty-controls">
-                <button class="qty-btn" onclick="updateProductQty(${product.code}, -1)" 
-                        ${currentQty <= 0 ? 'disabled' : ''}>-</button>
-                <span class="qty-display">${currentQty}</span>
-                <button class="qty-btn" onclick="updateProductQty(${product.code}, 1)" 
-                        ${currentQty >= availableQty ? 'disabled' : ''}>+</button>
-            </div>
-            <button class="add-to-cart-btn" onclick="addToCart(${product.code})"
-                    ${!isAvailable || availableQty === 0 ? 'disabled' : ''}>
-                <i class="fas fa-cart-plus"></i> إضافة
-            </button>
-        </div>
-    `;
-    
-    return productCard;
-}
-
-        // تحديث كمية المنتج
-        window.updateProductQty = function(code, change) {
-            const currentQty = appState.selectedProducts[code] || 0;
-            const availability = appState.availability[code] || {};
-            const availableQty = availability.available_qty || 0;
-            
-            let newQty = currentQty + change;
-            newQty = Math.max(0, Math.min(newQty, availableQty));
-            
-            if (newQty !== currentQty) {
-                appState.selectedProducts[code] = newQty;
-                updateCart();
-                renderProducts();
-            }
-        };
-        
-        // إضافة إلى السلة
-        window.addToCart = function(code) {
-            const currentQty = appState.selectedProducts[code] || 0;
-            if (currentQty > 0) {
-                updateProductQty(code, 0);
-                showNotification('تمت إضافة المنتج إلى السلة', 'success');
-            }
-        };
-        
-        // تحديث السلة
-        function updateCart() {
-            appState.cart = [];
-            let total = 0;
-            
-            Object.entries(appState.selectedProducts).forEach(([code, qty]) => {
-                if (qty > 0) {
-                    const product = appState.products.find(p => p.code == code);
-                    if (product) {
-                        const itemTotal = product.price * qty;
-                        total += itemTotal;
-                        
-                        appState.cart.push({
-                            code: code,
-                            name: product.item,
-                            price: product.price,
-                            qty: qty,
-                            total: itemTotal
-                        });
-                    }
-                }
-            });
-            
-            updateCartDisplay();
-            updateStats();
-        }
 
     // عرض السلة
     function updateCartDisplay() {
@@ -1816,11 +1711,11 @@ function createProductCard(product) {
     }
 
     // إزالة من السلة
-    window.removeFromCart = function(code) {
+    function removeFromCart(code) {
         delete appState.selectedProducts[code];
         updateCart();
         renderProducts();
-    };
+    }
 
     // إفراغ السلة
     function clearCart() {
@@ -1832,7 +1727,7 @@ function createProductCard(product) {
             renderProducts();
             showNotification('تم إفراغ السلة', 'success');
         }
-    };
+    }
 
     // فلترة المنتجات
     function filterProducts() {
@@ -1842,7 +1737,7 @@ function createProductCard(product) {
     // تحميل طلبات المستخدم
     async function loadUserOrders() {
         try {
-            const { data } = await supabase
+            const { data } = await supabaseClient
                 .from('orders')
                 .select('*')
                 .eq('username', appState.username)
@@ -1859,7 +1754,7 @@ function createProductCard(product) {
     // تحميل استهلاك المستخدم
     async function loadUserConsumption() {
         try {
-            const { data } = await supabase
+            const { data } = await supabaseClient
                 .from('expenses')
                 .select('*')
                 .eq('username', appState.username)
@@ -1882,7 +1777,6 @@ function createProductCard(product) {
         elements.cartTotal.textContent = total.toFixed(2) + ' جنيه';
     }
 
-    // إرسال الطلب
     // إرسال الطلب
     async function sendOrder(orderType) {
         const place = elements.place.value.trim();
@@ -1967,7 +1861,7 @@ function createProductCard(product) {
                 
                 // تحديث المخزون
                 const newQty = Math.max(0, availableQty - item.qty);
-                const { error: updateError } = await supabase
+                const { error: updateError } = await supabaseClient
                     .from('availability')
                     .update({ available_qty: newQty })
                     .eq('code', item.code);
@@ -1983,7 +1877,7 @@ function createProductCard(product) {
             }
             
             // إدخال الطلب
-            const { data: orderData, error: orderError } = await supabase
+            const { data: orderData, error: orderError } = await supabaseClient
                 .from('orders')
                 .insert({
                     username: appState.username,
@@ -2009,7 +1903,7 @@ function createProductCard(product) {
             
             // إدخال المصروفات
             if (expensesRows.length > 0) {
-                const { error: expenseError } = await supabase
+                const { error: expenseError } = await supabaseClient
                     .from('expenses')
                     .insert(expensesRows);
                 
@@ -2045,7 +1939,7 @@ function createProductCard(product) {
     // التحقق من حالة النظام
     async function checkSystemStatus() {
         try {
-            const { data } = await supabase
+            const { data } = await supabaseClient
                 .from('system_status')
                 .select('*')
                 .limit(1)
@@ -2103,7 +1997,7 @@ function createProductCard(product) {
         }, 30000); // 30 ثانية
     }
 
-    // عرض نافذة الطلبات - محسّن
+    // عرض نافذة الطلبات
     function showOrdersModal() {
         elements.ordersTableBody.innerHTML = '';
         
@@ -2182,7 +2076,7 @@ function createProductCard(product) {
         elements.ordersModal.classList.remove('hidden');
     }
 
-    // عرض نافذة الاستهلاك - محسّن
+    // عرض نافذة الاستهلاك
     function showConsumptionModal() {
         elements.consumptionTableBody.innerHTML = '';
         
@@ -2326,7 +2220,7 @@ function createProductCard(product) {
         
         try {
             // التحقق من كلمة المرور الحالية
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('users')
                 .select('*')
                 .eq('username', username)
@@ -2339,7 +2233,7 @@ function createProductCard(product) {
             }
             
             // تحديث كلمة المرور
-            const { error: updateError } = await supabase
+            const { error: updateError } = await supabaseClient
                 .from('users')
                 .update({ password: newPassword })
                 .eq('username', username);
@@ -2440,4 +2334,3 @@ function createProductCard(product) {
 </script>
 </body>
 </html>
-
