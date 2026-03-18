@@ -1441,6 +1441,7 @@
     }
 
     // تسجيل الدخول
+    // دالة تسجيل الدخول المعدلة
     async function handleLogin() {
         const username = elements.usernameInput.value.trim();
         const password = elements.passwordInput.value.trim();
@@ -1456,27 +1457,27 @@
         }
         
         try {
+            // استعلام بدون .single()
             const { data, error } = await supabaseClient
                 .from('users')
                 .select('*')
                 .eq('username', username)
                 .eq('password', password);
             
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase error:', error);
+                showMessage(elements.loginMessage, 'خطأ في الاتصال بقاعدة البيانات', 'error');
+                return;
+            }
             
+            // التحقق من وجود بيانات
             if (!data || data.length === 0) {
                 showMessage(elements.loginMessage, 'اسم المستخدم أو كلمة المرور غير صحيحة', 'error');
                 return;
             }
             
-            const userData = data[0];
-            
-            if (error || !data) {
-                showMessage(elements.loginMessage, 'اسم المستخدم أو كلمة المرور غير صحيحة', 'error');
-                return;
-            }
-            
             // تسجيل الدخول الناجح
+            const user = data[0]; // أول مستخدم مطابق
             appState.loggedIn = true;
             appState.username = username;
             
@@ -1490,8 +1491,8 @@
             showNotification('تم تسجيل الدخول بنجاح!', 'success');
             
         } catch (error) {
-            showMessage(elements.loginMessage, 'حدث خطأ أثناء تسجيل الدخول', 'error');
             console.error('Login error:', error);
+            showMessage(elements.loginMessage, 'حدث خطأ أثناء تسجيل الدخول', 'error');
         }
     }
 
