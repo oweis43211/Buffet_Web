@@ -1955,6 +1955,7 @@
     }
 
     // التحقق من حالة النظام
+  // التحقق من حالة النظام
     async function checkSystemStatus() {
         try {
             const { data, error } = await supabaseClient
@@ -1962,14 +1963,33 @@
                 .select('*')
                 .limit(1);
             
-            if (!error && data && data.length > 0) {
+            if (error) {
+                // Check if error is because table doesn't exist
+                if (error.code === '42P01') { // PostgreSQL code for undefined_table
+                    console.log('system_status table not found, using default values');
+                    // Set default values
+                    appState.systemStatus = { buffet_open: true, prayer_closed: false };
+                    elements.buffetStatus.textContent = '✅ البوفيه مفتوح (افتراضي)';
+                    elements.buffetStatus.style.color = '#4CAF50';
+                    return;
+                }
+                
+                console.error('Error checking system status:', error);
+                // Set default values on error
+                appState.systemStatus = { buffet_open: true, prayer_closed: false };
+                elements.buffetStatus.textContent = '✅ البوفيه مفتوح';
+                elements.buffetStatus.style.color = '#4CAF50';
+                return;
+            }
+            
+            if (data && data.length > 0) {
                 appState.systemStatus = data[0];
                 
                 let statusText = '';
-                if (!data.buffet_open) {
+                if (!data[0].buffet_open) {
                     statusText = '⛔ البوفيه مغلق';
                     elements.buffetStatus.style.color = '#F44336';
-                } else if (data.prayer_closed) {
+                } else if (data[0].prayer_closed) {
                     statusText = '⏸️ متوقف للصلاة';
                     elements.buffetStatus.style.color = '#FF9800';
                 } else {
@@ -1978,9 +1998,18 @@
                 }
                 
                 elements.buffetStatus.textContent = statusText;
+            } else {
+                // No data in table, use defaults
+                appState.systemStatus = { buffet_open: true, prayer_closed: false };
+                elements.buffetStatus.textContent = '✅ البوفيه مفتوح';
+                elements.buffetStatus.style.color = '#4CAF50';
             }
         } catch (error) {
-            console.error('Error checking system status:', error);
+            console.error('Error in checkSystemStatus:', error);
+            // Set default values on error
+            appState.systemStatus = { buffet_open: true, prayer_closed: false };
+            elements.buffetStatus.textContent = '✅ البوفيه مفتوح';
+            elements.buffetStatus.style.color = '#4CAF50';
         }
     }
 
