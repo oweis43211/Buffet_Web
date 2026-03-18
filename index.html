@@ -1460,8 +1460,16 @@
                 .from('users')
                 .select('*')
                 .eq('username', username)
-                .eq('password', password)
-                .single();
+                .eq('password', password);
+            
+            if (error) throw error;
+            
+            if (!data || data.length === 0) {
+                showMessage(elements.loginMessage, 'اسم المستخدم أو كلمة المرور غير صحيحة', 'error');
+                return;
+            }
+            
+            const userData = data[0];
             
             if (error || !data) {
                 showMessage(elements.loginMessage, 'اسم المستخدم أو كلمة المرور غير صحيحة', 'error');
@@ -1518,13 +1526,23 @@
         updateCartDisplay();
     }
 
-    // تحميل المنتجات
+        // تحميل المنتجات
     async function loadProducts() {
         try {
             const [productsRes, availabilityRes] = await Promise.all([
                 supabaseClient.from('prices').select('*'),
                 supabaseClient.from('availability').select('*')
             ]);
+            
+            if (productsRes.error) {
+                console.error('Products error:', productsRes.error);
+                showNotification('خطأ في تحميل المنتجات: ' + productsRes.error.message, 'error');
+                return;
+            }
+            
+            if (availabilityRes.error) {
+                console.error('Availability error:', availabilityRes.error);
+            }
             
             appState.products = productsRes.data || [];
             appState.availability = {};
@@ -1939,14 +1957,13 @@
     // التحقق من حالة النظام
     async function checkSystemStatus() {
         try {
-            const { data } = await supabaseClient
+            const { data, error } = await supabaseClient
                 .from('system_status')
                 .select('*')
-                .limit(1)
-                .single();
+                .limit(1);
             
-            if (data) {
-                appState.systemStatus = data;
+            if (!error && data && data.length > 0) {
+                appState.systemStatus = data[0];
                 
                 let statusText = '';
                 if (!data.buffet_open) {
