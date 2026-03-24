@@ -1290,6 +1290,12 @@
     // إنشاء عميل Supabase مرة واحدة فقط
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        // بيانات الدخول كضيف
+    const GUEST_CREDENTIALS = {
+        username: 'بوفيه',
+        password: '2011',
+        redirectUrl: 'orders.html'
+    };
 
     // حالة التطبيق الرئيسي
     let appState = {
@@ -1387,9 +1393,9 @@
     // إعداد مستمعي الأحداث الرئيسية
     function setupEventListeners() {
         // تسجيل الدخول
-        elements.loginBtn.addEventListener('click', handleLogin);
+        elements.loginBtn.addEventListener('click', );
         elements.passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleLogin();
+            if (e.key === 'Enter') ();
         });
         
         elements.changePasswordBtn.addEventListener('click', showChangePasswordModal);
@@ -1451,6 +1457,23 @@
             return;
         }
         
+        // التحقق من دخول الضيف (بوفيه / 2011)
+        if (username === GUEST_CREDENTIALS.username && password === GUEST_CREDENTIALS.password) {
+            // تسجيل دخول الضيف - التوجيه إلى orders.html
+            showNotification('مرحباً بك في لوحة الطلبات! سيتم تحويلك الآن...', 'success');
+            
+            // حفظ معلومات الجلسة
+            localStorage.setItem('buffet_guest', 'true');
+            localStorage.setItem('buffet_guest_username', username);
+            
+            // التوجيه إلى orders.html بعد ثانية
+            setTimeout(() => {
+                window.location.href = GUEST_CREDENTIALS.redirectUrl;
+            }, 1000);
+            return;
+        }
+        
+        // التحقق من صحة كلمة المرور (4 أرقام)
         if (!password.match(/^\d{4}$/)) {
             showMessage(elements.loginMessage, 'كلمة المرور يجب أن تكون 4 أرقام فقط', 'error');
             return;
@@ -1476,7 +1499,7 @@
                 return;
             }
             
-            // تسجيل الدخول الناجح
+            // تسجيل الدخول الناجح كمستخدم عادي
             const user = data[0]; // أول مستخدم مطابق
             appState.loggedIn = true;
             appState.username = username;
@@ -1484,6 +1507,7 @@
             // حفظ في localStorage
             localStorage.setItem('buffet_user', password);
             localStorage.setItem('buffet_username', username);
+            localStorage.removeItem('buffet_guest'); // إزالة علامة الضيف إذا كانت موجودة
             
             showMainScreen();
             await loadUserData();
@@ -1509,8 +1533,11 @@
             appState.autoRefreshInterval = null;
         }
         
+        // تنظيف جميع التخزينات
         localStorage.removeItem('buffet_user');
         localStorage.removeItem('buffet_username');
+        localStorage.removeItem('buffet_guest');
+        localStorage.removeItem('buffet_guest_username');
         
         showLoginScreen();
         showNotification('تم تسجيل الخروج بنجاح', 'success');
