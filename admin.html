@@ -2242,12 +2242,13 @@
     }
 
     // عرض الطلبات للإدارة
+    // عرض الطلبات للإدارة (تعديل جزء أزرار الإجراءات)
     function displayAdminOrders() {
         if (!adminState.orders.length) {
             if (elements.adminOrdersTableBody) {
                 elements.adminOrdersTableBody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="empty">لا توجد طلبات</td>
+                        <td colspan="8" class="empty">لا توجد طلبات</td>
                     </tr>
                 `;
             }
@@ -2271,17 +2272,25 @@
                     </td>
                     <td>
                         <div class="action-buttons">
-                            <button class="btn-icon" onclick="viewAdminOrderDetails(${order.id})" title="عرض">
+                            <button class="btn-icon" onclick="viewAdminOrderDetails(${order.id})" title="عرض التفاصيل">
                                 <i class="fas fa-eye"></i>
                             </button>
                             <button class="btn-icon" onclick="updateAdminOrderStatus(${order.id})" title="تغيير الحالة">
                                 <i class="fas fa-sync"></i>
+                            </button>
+                            <button class="btn-icon" onclick="deleteOrderPermanently(${order.id})" title="حذف نهائي" style="background: var(--danger-color);">
+                                <i class="fas fa-trash-alt"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
             `;
         });
+        
+        if (elements.adminOrdersTableBody) {
+            elements.adminOrdersTableBody.innerHTML = html;
+        }
+    }
         
         if (elements.adminOrdersTableBody) {
             elements.adminOrdersTableBody.innerHTML = html;
@@ -2813,6 +2822,7 @@
     };
 
     // عرض تفاصيل الطلب للإدارة
+    // عرض تفاصيل الطلب للإدارة (تعديل جزء الأزرار)
     window.viewAdminOrderDetails = async function(orderId) {
         try {
             const { data: order, error } = await supabaseClient
@@ -2869,9 +2879,12 @@
                     </table>
                 </div>
                 
-                <div class="order-actions">
+                <div class="order-actions" style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
                     <button onclick="updateAdminOrderStatus(${order.id})" class="btn-primary">
                         <i class="fas fa-sync"></i> تغيير حالة الطلب
+                    </button>
+                    <button onclick="deleteOrderPermanently(${order.id})" class="btn-danger" style="background: var(--danger-color);">
+                        <i class="fas fa-trash-alt"></i> حذف نهائي
                     </button>
                 </div>
             `;
@@ -2887,6 +2900,7 @@
     };
 
     // تحديث حالة الطلب للإدارة
+    // تحديث حالة الطلب للإدارة مع حذف الاستهلاك تلقائياً عند الإلغاء
     window.updateAdminOrderStatus = async function(orderId) {
         const statuses = ['في الانتظار', 'تم الاستلام', 'جاري التجهيز', 'تم التسليم', 'ملغي'];
         const currentStatus = adminState.orders.find(o => o.id === orderId)?.status || 'في الانتظار';
@@ -2900,6 +2914,42 @@
         
         if (newStatus && statuses.includes(newStatus)) {
             try {
+                // إذا كانت الحالة الجديدة "ملغي" والحالة الحالية ليست ملغي
+                if (newStatus === 'ملغي' && currentStatus !== 'ملغي') {
+                    // طلب تأكيد إضافي
+                    const confirmCancel = confirm(`⚠️ تحذير!\n\nسيتم إلغاء الطلب #${orderId} وسيتم حذف الاستهلاك المرتبط به نهائياً.\n\nهل أنت متأكد؟`);
+                    if (!confirmCancel) return;
+                    
+                    // جلب الطلب قبل التحديث
+                    const { data: order, error: fetchError } = await supabaseClient
+                        .from('orders')
+                        .select('*')
+                        .eq('id', orderId)
+                        .single();
+                    
+                    if (fetchError) throw fetchError;
+                    
+                    // حذف الاستهلاك المرتبط بهذا الطلب من جدول expenses
+                    if (order && order.id) {
+                        const { error: deleteExpenseError } = await supabaseClient
+                            .from('expenses')
+                            .delete()
+                            .eq('order_id', orderId);
+                        
+                        if (deleteExpenseError) {
+                            console.error('Error deleting expense:', deleteExpenseError);
+                            // محاولة الحذف باستخدام معايير أخرى
+                            await supabaseClient
+                                .from('expenses')
+                                .delete()
+                                .eq('order_id', orderId.toString());
+                        }
+                        
+                        console.log(`تم حذف الاستهلاك المرتبط بالطلب #${orderId}`);
+                    }
+                }
+                
+                // تحديث حالة الطلب
                 const { error } = await supabaseClient
                     .from('orders')
                     .update({ status: newStatus })
@@ -2907,16 +2957,16 @@
                 
                 if (error) throw error;
                 
-                alert('تم تحديث حالة الطلب');
+                alert(newStatus === 'ملغي' ? '✅ تم إلغاء الطلب وحذف الاستهلاك بنجاح' : '✅ تم تحديث حالة الطلب');
                 await loadAdminOrders();
+                await loadDashboardData();
                 
             } catch (error) {
                 console.error('Error updating order status:', error);
-                alert('خطأ في تحديث حالة الطلب');
+                alert('❌ خطأ في تحديث حالة الطلب: ' + error.message);
             }
         }
     };
-
     // تحديث المخزون للإدارة
     window.updateAdminStock = async function(code, change) {
         const product = adminState.inventory.find(item => item.code === code);
@@ -3770,6 +3820,49 @@
         
         console.log('لوحة تحكم نظام البوفيه الذكي جاهزة للاستخدام');
     });
+    // حذف الطلب نهائياً من جميع الجداول
+    window.deleteOrderPermanently = async function(orderId) {
+        const confirmDelete = confirm(`⚠️ تحذير خطير!\n\nهل أنت متأكد من حذف الطلب #${orderId} نهائياً؟\n\nسيتم:\n• حذف الطلب من جدول الطلبات\n• حذف الاستهلاك المرتبط به\n• لا يمكن التراجع عن هذا الإجراء\n\nاكتب "تأكيد" للمتابعة:`);
+        
+        if (confirmDelete !== true) return;
+        
+        const confirmation = prompt('اكتب "تأكيد" لحذف الطلب نهائياً:');
+        if (confirmation !== 'تأكيد') {
+            alert('تم إلغاء عملية الحذف');
+            return;
+        }
+        
+        try {
+            // 1. حذف الاستهلاك المرتبط أولاً
+            const { error: expenseError } = await supabaseClient
+                .from('expenses')
+                .delete()
+                .eq('order_id', orderId);
+            
+            if (expenseError) {
+                console.error('Error deleting expense:', expenseError);
+            }
+            
+            // 2. حذف الطلب من جدول orders
+            const { error: orderError } = await supabaseClient
+                .from('orders')
+                .delete()
+                .eq('id', orderId);
+            
+            if (orderError) throw orderError;
+            
+            alert(`✅ تم حذف الطلب #${orderId} وجميع البيانات المرتبطة به بنجاح`);
+            
+            // تحديث جميع البيانات
+            await loadAdminOrders();
+            await loadDashboardData();
+            await loadConsumptions(); // تحديث الاستهلاكات إذا كانت مفتوحة
+            
+        } catch (error) {
+            console.error('Error deleting order:', error);
+            alert('❌ خطأ في حذف الطلب: ' + error.message);
+        }
+    };
 </script>
 </body>
 </html>
